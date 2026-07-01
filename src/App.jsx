@@ -1,10 +1,9 @@
 import { useRef, useState } from 'react'
-import { findTrackedDistribution, TRACKED_DISTRIBUTION_WALLET, TRACKED_MINT } from './services/solanaRpc'
+import { findTrackedDistribution } from './services/solanaRpc'
 import './App.css'
+import './trackerStates.css'
 
-const DEMO_ADDRESS = 'HDixbrzwwLXczhDBk1JVrurPQsuLE8FUKnW2pucSXN3o'
-const DEMO_AMOUNT = '3,800,000 $ANSEM'
-const DEMO_SIGNATURE = '5NdemoBullPrintPreviewRecord1111111111111111111111111111111111'
+const BASE58_ALPHABET = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz'
 
 function BullPrintLogo({ compact = false }) {
   return (
@@ -44,14 +43,52 @@ function shortenAddress(address) {
   return `${address.slice(0, 6)}…${address.slice(-6)}`
 }
 
-function isReasonableSolanaAddress(value) {
-  return /^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(value)
+function decodedBase58Length(value) {
+  const bytes = [0]
+
+  for (const character of value) {
+    const characterValue = BASE58_ALPHABET.indexOf(character)
+    if (characterValue < 0) return 0
+
+    let carry = characterValue
+    for (let index = 0; index < bytes.length; index += 1) {
+      carry += bytes[index] * 58
+      bytes[index] = carry & 0xff
+      carry >>= 8
+    }
+
+    while (carry > 0) {
+      bytes.push(carry & 0xff)
+      carry >>= 8
+    }
+  }
+
+  for (let index = 0; value[index] === '1' && index < value.length - 1; index += 1) {
+    bytes.push(0)
+  }
+
+  return bytes.length
+}
+
+function isValidSolanaAddress(value) {
+  if (!/^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(value)) return false
+  return decodedBase58Length(value) === 32
+}
+
+function LoadingSpinner({ small = false }) {
+  return <span className={`loadingSpinner ${small ? 'loadingSpinner--small' : ''}`} aria-hidden="true" />
 }
 
 function WalletSearchForm({ onResult }) {
   const [wallet, setWallet] = useState('')
   const [message, setMessage] = useState('')
+  const [messageType, setMessageType] = useState('')
   const [isLoading, setIsLoading] = useState(false)
+
+  function showMessage(text, type) {
+    setMessage(text)
+    setMessageType(type)
+  }
 
   async function handleSubmit(event) {
     event.preventDefault()
@@ -60,41 +97,51 @@ function WalletSearchForm({ onResult }) {
     if (isLoading) return
 
     if (!trimmedWallet) {
-      setMessage('Enter a public Solana wallet address to continue.')
+      showMessage('Enter a public Solana wallet address to continue.', 'validation')
       onResult({ status: 'idle' })
       return
     }
 
-    if (!isReasonableSolanaAddress(trimmedWallet)) {
-      setMessage('That does not appear to be a valid Solana public address.')
+    if (!isValidSolanaAddress(trimmedWallet)) {
+      showMessage('Enter a complete Solana address. It must use Base58 characters and decode to exactly 32 bytes.', 'validation')
       onResult({ status: 'idle' })
       return
     }
 
+    setWallet(trimmedWallet)
     setIsLoading(true)
-    setMessage('Checking Solana…')
+    showMessage('Checking live Solana Mainnet data…', 'loading')
     onResult({ status: 'loading' })
 
-    const lookup = await findTrackedDistribution(trimmedWallet)
+    try {
+      const lookup = await findTrackedDistribution(trimmedWallet)
 
-    if (lookup.error) {
-      setMessage(lookup.message)
-      onResult({ status: 'error', message: lookup.message })
-    } else if (lookup.found) {
-      setMessage('Tracked distribution found through live Solana RPC data.')
-      onResult({ status: 'found', data: lookup })
-    } else {
-      setMessage(lookup.reason)
-      onResult({ status: 'not-found', message: lookup.reason })
+      if (lookup.error) {
+        showMessage(lookup.message, 'error')
+        onResult({ status: 'error', message: lookup.message })
+      } else if (lookup.found) {
+        showMessage('Tracked distribution found through live Solana RPC data.', 'found')
+        onResult({ status: 'found', data: lookup })
+      } else {
+        showMessage(lookup.reason, 'not-found')
+        onResult({ status: 'not-found', message: lookup.reason })
+      }
+    } catch {
+      const fallbackMessage = 'BullPrint could not complete the live lookup. Please try again shortly.'
+      showMessage(fallbackMessage, 'error')
+      onResult({ status: 'error', message: fallbackMessage })
+    } finally {
+      setIsLoading(false)
     }
-
-    setIsLoading(false)
   }
 
-  function previewDemo() {
-    if (isLoading) return
-    setMessage('DEMO RECORD ready. This is sample data, not live verification.')
-    onResult({ status: 'demo' })
+  function handleWalletChange(event) {
+    setWallet(event.target.value)
+
+    if (messageType === 'validation') {
+      setMessage('')
+      setMessageType('')
+    }
   }
 
   return (
@@ -106,24 +153,34 @@ function WalletSearchForm({ onResult }) {
           name="walletAddress"
           type="text"
           autoComplete="off"
+          autoCapitalize="none"
+          autoCorrect="off"
+          spellCheck="false"
           inputMode="text"
           placeholder="Paste public address only"
           value={wallet}
-          onChange={(event) => setWallet(event.target.value)}
+          onChange={handleWalletChange}
           aria-describedby="walletHelp walletLimitations walletMessage"
+          aria-invalid={messageType === 'validation'}
+          className={messageType === 'validation' ? 'inputError' : ''}
           disabled={isLoading}
         />
-        <button type="submit" className="primaryButton" disabled={isLoading}>{isLoading ? 'Checking Solana…' : 'Check My BullPrint'}</button>
-      </div>
-      <div className="formActions">
-        <button type="button" className="ghostButton" onClick={previewDemo} disabled={isLoading}>
-          Preview Demo Result
+        <button type="submit" className="primaryButton" disabled={isLoading}>
+          <span className="buttonContent">
+            {isLoading && <LoadingSpinner small />}
+            {isLoading ? 'Checking Solana…' : 'Check My BullPrint'}
+          </span>
         </button>
-        <p id="walletHelp">No wallet connection. Public addresses only.</p>
       </div>
-      <p className="limitationNote" id="walletLimitations">BullPrint checks a limited set of recent transactions using a public Solana RPC endpoint. No result does not prove that a transfer never occurred.</p>
+      <p className="walletHelp" id="walletHelp">No wallet connection. Public addresses only.</p>
+      <p className="limitationNote" id="walletLimitations">BullPrint checks a limited set of recent transactions using live Solana Mainnet RPC data. No result does not prove that a transfer never occurred.</p>
       <p className="limitationNote">Tracked by BullPrint does not mean officially endorsed.</p>
-      {message && <p className="formMessage" id="walletMessage" role="status">{message}</p>}
+      {message && (
+        <p className={`formMessage formMessage--${messageType}`} id="walletMessage" role="status" aria-live="polite">
+          {messageType === 'loading' && <LoadingSpinner small />}
+          <span>{message}</span>
+        </p>
+      )}
     </form>
   )
 }
@@ -162,29 +219,71 @@ function formatDate(blockTime) {
   return new Intl.DateTimeFormat(undefined, { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(blockTime * 1000))
 }
 
+function ResultStatusIcon({ status }) {
+  if (status === 'loading') return <LoadingSpinner />
+
+  const path = status === 'found'
+    ? 'M5 12.5 10 17 19 7'
+    : status === 'not-found'
+      ? 'M8 8l8 8M16 8l-8 8'
+      : 'M12 7v6M12 17h.01'
+
+  return (
+    <span className={`resultStatusIcon resultStatusIcon--${status}`} aria-hidden="true">
+      <svg viewBox="0 0 24 24"><path d={path} /></svg>
+    </span>
+  )
+}
+
 function LookupResult({ result }) {
   const [copyMessage, setCopyMessage] = useState('')
   const [cardMessage, setCardMessage] = useState('')
   const receiptRef = useRef(null)
 
-  if (result.status === 'idle' || result.status === 'loading') return null
+  if (result.status === 'idle') return null
 
-  const isDemo = result.status === 'demo'
-  const data = isDemo ? {
-    recipient: DEMO_ADDRESS,
-    amountReceived: DEMO_AMOUNT,
-    tokenMint: TRACKED_MINT,
-    sourceWallet: TRACKED_DISTRIBUTION_WALLET,
-    transactionSignature: DEMO_SIGNATURE,
-    blockTime: null,
-    network: 'Solana Mainnet',
-    verification: 'DEMO RECORD',
-    explorerUrl: '#tracker',
-  } : result.data
+  if (result.status === 'loading') {
+    return (
+      <section className="resultPanel resultPanel--loading" aria-live="polite" aria-label="Lookup in progress">
+        <div className="resultStatusLayout">
+          <ResultStatusIcon status="loading" />
+          <div className="resultHeader">
+            <span className="recordBadge">Live lookup</span>
+            <h2>Checking the blockchain</h2>
+            <p>BullPrint is checking token accounts and recent confirmed transactions. This may take a few seconds.</p>
+          </div>
+        </div>
+      </section>
+    )
+  }
+
+  if (result.status === 'not-found' || result.status === 'error') {
+    const isError = result.status === 'error'
+
+    return (
+      <section className={`resultPanel resultPanel--${result.status}`} aria-labelledby="result-title" aria-live="polite">
+        <div className="resultStatusLayout">
+          <ResultStatusIcon status={result.status} />
+          <div className="resultHeader">
+            <span className="recordBadge">{isError ? 'Lookup issue' : 'No match'}</span>
+            <h2 id="result-title">{isError ? 'Live Lookup Unavailable' : 'No Tracked Distribution Found'}</h2>
+            <p>{result.message}</p>
+            {!isError && <p className="resultHint">The lookup completed successfully. This result only covers BullPrint’s configured mint and limited recent transaction search.</p>}
+          </div>
+        </div>
+      </section>
+    )
+  }
+
+  const data = result.data
 
   async function copySignature() {
-    await navigator.clipboard.writeText(data.transactionSignature)
-    setCopyMessage('Transaction signature copied.')
+    try {
+      await navigator.clipboard.writeText(data.transactionSignature)
+      setCopyMessage('Transaction signature copied.')
+    } catch {
+      setCopyMessage('Copy failed. Press and hold the signature to copy it manually.')
+    }
   }
 
   function generateCard() {
@@ -192,24 +291,15 @@ function LookupResult({ result }) {
     receiptRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' })
   }
 
-  if (result.status === 'not-found' || result.status === 'error') {
-    return (
-      <section className={`resultPanel resultPanel--${result.status}`} aria-labelledby="result-title">
-        <div className="resultHeader">
-          <span className="recordBadge">{result.status === 'error' ? 'Temporary RPC Issue' : 'Not Found'}</span>
-          <h2 id="result-title">{result.status === 'error' ? 'Live Lookup Unavailable' : 'No Configured Distribution Found'}</h2>
-          <p>{result.message}</p>
-        </div>
-      </section>
-    )
-  }
-
   return (
-    <section className="resultPanel" aria-labelledby="result-title">
-      <div className="resultHeader">
-        <span className="recordBadge">{isDemo ? 'DEMO RECORD' : data.verification}</span>
-        <h2 id="result-title">Tracked Distribution Found</h2>
-        <p>{isDemo ? 'This is clearly labelled sample data and did not perform a blockchain lookup.' : 'This match was found by checking live, read-only Solana Mainnet RPC data.'}</p>
+    <section className="resultPanel resultPanel--found" aria-labelledby="result-title" aria-live="polite">
+      <div className="resultStatusLayout">
+        <ResultStatusIcon status="found" />
+        <div className="resultHeader">
+          <span className="recordBadge">Verified match</span>
+          <h2 id="result-title">Tracked Distribution Found</h2>
+          <p>This match was found by checking live, read-only Solana Mainnet RPC data.</p>
+        </div>
       </div>
       <dl className="resultGrid">
         <div><dt>Verification</dt><dd>{data.verification}</dd></div>
@@ -222,7 +312,7 @@ function LookupResult({ result }) {
         <div className="wideResult"><dt>Transaction signature</dt><dd title={data.transactionSignature}>{data.transactionSignature}</dd></div>
       </dl>
       <div className="resultActions">
-        <a className={`buttonLink ${isDemo ? 'disabledLink' : ''}`} href={data.explorerUrl} target={isDemo ? undefined : '_blank'} rel="noreferrer" aria-disabled={isDemo}>Open in Solana Explorer</a>
+        <a className="buttonLink" href={data.explorerUrl} target="_blank" rel="noreferrer">Open in Solana Explorer</a>
         <button type="button" onClick={copySignature}>Copy transaction signature</button>
         <button type="button" className="primaryButton" onClick={generateCard}>Generate BullPrint Card</button>
       </div>
@@ -230,22 +320,22 @@ function LookupResult({ result }) {
         {copyMessage && <p>{copyMessage}</p>}
         {cardMessage && <p>{cardMessage}</p>}
       </div>
-      <BullPrintReceipt refProp={receiptRef} result={data} isDemo={isDemo} />
+      <BullPrintReceipt refProp={receiptRef} result={data} />
     </section>
   )
 }
 
-function BullPrintReceipt({ refProp, result, isDemo }) {
+function BullPrintReceipt({ refProp, result }) {
   return (
     <article className="receiptCard" ref={refProp} aria-label="BullPrint receipt card">
-      <div className="receiptTop"><BullPrintLogo compact /><span>BULLPRINT / {isDemo ? 'DEMO RECORD' : 'LIVE RPC MATCH'}</span></div>
+      <div className="receiptTop"><BullPrintLogo compact /><span>BULLPRINT / LIVE RPC MATCH</span></div>
       <p className="receiptLabel">Tracked Distribution</p>
       <strong>{result.amountReceived}</strong>
       <div className="receiptMeta"><span>Recipient</span><b title={result.recipient}>{shortenAddress(result.recipient)}</b></div>
       <div className="receiptMeta"><span>Network</span><b>{result.network}</b></div>
       <div className="receiptMeta"><span>Status</span><b>{result.verification}</b></div>
       <p className="receiptStory">Every drop has a story.</p>
-      <p className="receiptId">{isDemo ? 'BP-DEMO-0001' : result.transactionSignature}</p>
+      <p className="receiptId">{result.transactionSignature}</p>
     </article>
   )
 }
@@ -285,7 +375,7 @@ function Footer() {
     <footer className="siteFooter">
       <div><BullPrintLogo compact /><strong>BullPrint</strong><p>Built for the $ANSEM community.</p></div>
       <p>Community-built and read-only. BullPrint is not financial advice and does not guarantee token safety.</p>
-      <nav aria-label="Footer navigation"><a href="#how-it-works">How It Works</a><a href="#security">Security</a><a href="https://github.com/" rel="noreferrer">GitHub</a></nav>
+      <nav aria-label="Footer navigation"><a href="#how-it-works">How It Works</a><a href="#security">Security</a><a href="https://github.com/emmy16-glitch/bullprint" target="_blank" rel="noreferrer">GitHub</a></nav>
     </footer>
   )
 }
