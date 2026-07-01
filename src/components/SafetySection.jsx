@@ -1,0 +1,2 @@
+const items=['Read-only public blockchain lookup','No wallet connection','No private key','No seed phrase','No transaction approval','A matching result is not financial advice or proof that a token is risk-free']
+export default function SafetySection(){return <section className="safety" id="safety" aria-labelledby="safety-title"><h2 id="safety-title">Safety</h2><div>{items.map((item)=><p key={item}>{item}</p>)}</div></section>}

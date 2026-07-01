@@ -1,0 +1,2 @@
+const steps = [['Paste address','Enter the public Solana wallet you want to verify.'],['Run lookup','Check recent activity against the tracked distribution wallet and mint.'],['Review result','View the result, transaction evidence and generate a receipt.']]
+export default function HowItWorks(){return <section className="how" id="how-it-works" aria-labelledby="how-title"><h2 id="how-title">How it works</h2><div className="step-grid">{steps.map(([t,d],i)=><article className="step-card" key={t}><span>{i+1}</span><div><h3>{t}</h3><p>{d}</p></div></article>)}</div></section>}
