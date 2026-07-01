@@ -1,4 +1,4 @@
-const RPC_ENDPOINT = '/api/solana-rpc'
+const RPC_ENDPOINT = 'https://ansem-distribution-monitor.emmanuelokunlola16.workers.dev/api/solana-rpc'
 const TRACKED_MINT = '9cRCn9rGT8V2imeM2BaKs13yhMEais3ruM3rPvTGpump'
 const TRACKED_DISTRIBUTION_WALLET = 'GV6UUmNxz2RpKxmNAPadYKb7uQpszwqQAu3qLJxVdC52'
 const REQUEST_TIMEOUT_MS = 15_000
