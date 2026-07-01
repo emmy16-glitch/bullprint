@@ -91,6 +91,7 @@ function Footer() {
 
 function App() {
   const [result, setResult] = useState({ status: 'idle' })
+  const resultKey = `${result.status}:${result.wallet || ''}`
 
   return (
     <div className="appShell" id="top">
@@ -100,7 +101,7 @@ function App() {
         <Introduction />
         <DistributionMonitor />
         <WalletChecker onResult={setResult} />
-        <WalletResult result={result} logoSrc={TOKEN_IMAGE_URL} />
+        <WalletResult key={resultKey} result={result} logoSrc={TOKEN_IMAGE_URL} />
         <HowItWorks />
         <CommunitySection />
         <SafetySection />
