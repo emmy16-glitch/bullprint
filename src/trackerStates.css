@@ -1,0 +1,152 @@
+.inputError {
+  border-color: rgba(255, 120, 144, .76) !important;
+  box-shadow: 0 0 0 4px rgba(255, 120, 144, .08) !important;
+}
+
+.loadingSpinner {
+  display: inline-block;
+  flex: 0 0 auto;
+  width: 2.7rem;
+  height: 2.7rem;
+  border: 3px solid rgba(231, 185, 93, .18);
+  border-top-color: var(--gold-soft);
+  border-right-color: var(--mint);
+  border-radius: 50%;
+  animation: ansemSpin .8s linear infinite;
+}
+
+.loadingSpinner--small {
+  width: 1.05rem;
+  height: 1.05rem;
+  border-width: 2px;
+}
+
+.formMessage {
+  display: flex;
+  align-items: center;
+  gap: .55rem;
+  margin: .9rem 0 0;
+  padding: .78rem .9rem;
+  border: 1px solid transparent;
+  border-radius: 1rem;
+  line-height: 1.45;
+}
+
+.formMessage--loading {
+  color: var(--gold-soft);
+  border-color: rgba(231, 185, 93, .25);
+  background: rgba(231, 185, 93, .06);
+}
+
+.formMessage--validation,
+.formMessage--error {
+  color: #ff9caf;
+  border-color: rgba(255, 120, 144, .3);
+  background: rgba(255, 120, 144, .07);
+}
+
+.resultStatusLayout {
+  display: flex;
+  align-items: flex-start;
+  gap: 1rem;
+}
+
+.resultStatusIcon {
+  display: inline-grid;
+  place-items: center;
+  flex: 0 0 auto;
+  width: 3.25rem;
+  height: 3.25rem;
+  border: 1px solid var(--line-strong);
+  border-radius: 1rem;
+  background: rgba(255, 255, 255, .045);
+}
+
+.resultStatusIcon svg {
+  width: 1.5rem;
+  stroke-width: 2.7;
+}
+
+.resultStatusIcon--found {
+  color: var(--mint);
+  border-color: rgba(115, 241, 207, .32);
+  background: rgba(115, 241, 207, .08);
+}
+
+.resultStatusIcon--not-found {
+  color: var(--gold-soft);
+  border-color: rgba(231, 185, 93, .34);
+  background: rgba(231, 185, 93, .08);
+}
+
+.resultStatusIcon--error {
+  color: var(--danger);
+  border-color: rgba(255, 120, 144, .34);
+  background: rgba(255, 120, 144, .08);
+}
+
+.resultPanel--loading {
+  border-color: rgba(231, 185, 93, .26);
+  background: linear-gradient(180deg, rgba(41, 36, 24, .88), rgba(15, 15, 13, .94));
+}
+
+.resultPanel--found {
+  border-color: rgba(115, 241, 207, .28);
+  background: linear-gradient(180deg, rgba(20, 48, 41, .7), rgba(15, 15, 13, .96));
+  box-shadow: var(--shadow), 0 0 60px rgba(115, 241, 207, .05);
+}
+
+.resultPanel--not-found {
+  border-color: rgba(231, 185, 93, .3);
+  background: linear-gradient(180deg, rgba(50, 40, 21, .7), rgba(15, 15, 13, .96));
+}
+
+.resultPanel--error {
+  border-color: rgba(255, 120, 144, .34);
+  background: linear-gradient(180deg, rgba(55, 24, 31, .72), rgba(15, 15, 13, .96));
+}
+
+.recordBadge {
+  display: inline-flex;
+  width: fit-content;
+  margin-bottom: .1rem;
+  padding: .38rem .58rem;
+  border: 1px solid var(--line-strong);
+  border-radius: 999px;
+  color: var(--gold-soft);
+  background: rgba(255, 255, 255, .035);
+  font-size: .65rem;
+  font-weight: 850;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+}
+
+.resultPanel--found .recordBadge {
+  color: var(--mint);
+  border-color: rgba(115, 241, 207, .3);
+  background: rgba(115, 241, 207, .07);
+}
+
+.resultPanel--error .recordBadge {
+  color: #ff9caf;
+  border-color: rgba(255, 120, 144, .3);
+  background: rgba(255, 120, 144, .07);
+}
+
+.resultHint {
+  margin-top: .55rem !important;
+  font-size: .88rem;
+}
+
+@keyframes ansemSpin {
+  to { transform: rotate(360deg); }
+}
+
+@media (max-width: 430px) {
+  .resultStatusLayout { gap: .75rem; }
+  .resultStatusIcon { width: 2.75rem; height: 2.75rem; border-radius: .85rem; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .loadingSpinner { animation-duration: 1.6s !important; }
+}

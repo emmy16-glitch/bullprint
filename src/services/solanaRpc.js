@@ -18,18 +18,18 @@ class SolanaRpcError extends Error {
 
 function safeErrorMessage(error) {
   if (error?.forbidden) {
-    return 'The Solana data provider rejected this request. BullPrint will try again when the RPC service is available.'
+    return 'The Solana data provider rejected this request. Please try again when the RPC service is available.'
   }
 
   if (error?.rateLimited) {
-    return 'The public Solana RPC endpoint is rate-limiting requests. Please wait a moment and try again.'
+    return 'The Solana data provider is rate-limiting requests. Please wait a moment and try again.'
   }
 
   if (error?.retryable || error?.name === 'AbortError' || error instanceof TypeError) {
-    return 'BullPrint could not reach the public Solana RPC endpoint. Please try again shortly.'
+    return 'The $ANSEM Wallet Checker could not reach the Solana data provider. Please try again shortly.'
   }
 
-  return error?.message || 'BullPrint could not complete the live Solana lookup. Please try again later.'
+  return error?.message || 'The $ANSEM Wallet Checker could not complete the live lookup. Please try again later.'
 }
 
 function isTemporaryNetworkError(error) {
@@ -50,11 +50,11 @@ async function rpcRequestOnce(method, params) {
 
     if (!response.ok) {
       if (response.status === 403) {
-        throw new SolanaRpcError('The Solana data provider rejected this request. BullPrint will try again when the RPC service is available.', { forbidden: true })
+        throw new SolanaRpcError('The Solana data provider rejected this request.', { forbidden: true })
       }
 
       if (response.status === 429) {
-        throw new SolanaRpcError('The public Solana RPC endpoint is rate-limiting requests. Please wait a moment and try again.', { rateLimited: true })
+        throw new SolanaRpcError('The Solana data provider is rate-limiting requests.', { rateLimited: true })
       }
 
       throw new SolanaRpcError(`Solana RPC returned HTTP ${response.status}.`, { retryable: response.status >= 500 })
@@ -80,7 +80,6 @@ export async function rpcRequest(method, params) {
       throw error
     }
 
-    // One automatic retry is enough for transient network hiccups; 429s are not retried.
     return rpcRequestOnce(method, params)
   }
 }
@@ -96,7 +95,7 @@ function decimalsFor(balance) {
 function formatRawAmount(rawAmount, decimals) {
   const raw = rawAmount.toString()
 
-  if (decimals === 0) return raw
+  if (decimals === 0) return raw.replace(/\B(?=(\d{3})+(?!\d))/g, ',')
 
   const padded = raw.padStart(decimals + 1, '0')
   const whole = padded.slice(0, -decimals)
@@ -118,7 +117,6 @@ function pubkeyForAccountIndex(transaction, accountIndex) {
 
 function ownerForTokenBalance(transaction, balance) {
   if (balance?.owner) return balance.owner
-
   return pubkeyForAccountIndex(transaction, balance?.accountIndex)
 }
 
@@ -159,7 +157,6 @@ function trackedTokenAccountBalances(transaction, walletAddress) {
 function parsedInstructionAmount(info) {
   const rawAmount = info?.tokenAmount?.amount ?? info?.amount
   if (!rawAmount) return 0n
-
   return BigInt(rawAmount)
 }
 
@@ -168,14 +165,13 @@ function isParsedTrackedTokenTransfer(instruction) {
   if (!parsed || instruction?.program !== 'spl-token') return false
   if (parsed.type !== 'transfer' && parsed.type !== 'transferChecked') return false
   if (parsed.info?.mint && parsed.info.mint !== TRACKED_MINT) return false
-
   return true
 }
 
 function parsedInstructions(transaction) {
   const topLevelInstructions = transaction?.transaction?.message?.instructions || []
   const innerInstructions = (transaction?.meta?.innerInstructions || [])
-    .flatMap((innerInstructionGroup) => innerInstructionGroup.instructions || [])
+    .flatMap((group) => group.instructions || [])
 
   return [...topLevelInstructions, ...innerInstructions]
 }
@@ -198,8 +194,6 @@ function findDirectTrackedTransfer(transaction, walletAddress) {
     const recipientIncrease = destination.post - destination.pre
     const sourceDecrease = source.pre - source.post
 
-    // Balance deltas validate this exact parsed transfer without allowing other
-    // unrelated changes in a batched transaction to create a false match.
     if (recipientIncrease < instructionAmount || sourceDecrease < instructionAmount) continue
 
     return {
@@ -246,7 +240,7 @@ export async function findTrackedDistribution(walletAddress) {
     if (tokenAccounts.length === 0) {
       return {
         found: false,
-        reason: 'No BullPrint tracked mint token accounts were found for this wallet.',
+        reason: 'No tracked $ANSEM token account was found for this wallet.',
       }
     }
 
@@ -279,7 +273,7 @@ export async function findTrackedDistribution(walletAddress) {
 
     return {
       found: false,
-      reason: 'No configured distribution record was found within BullPrint’s limited recent transaction search.',
+      reason: 'No tracked $ANSEM distribution was found within the limited recent transaction search.',
     }
   } catch (error) {
     return {

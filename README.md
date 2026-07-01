@@ -1,16 +1,32 @@
-# React + Vite
+# $ANSEM Wallet Checker
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+A community-built, read-only Solana wallet checker for finding tracked $ANSEM distributions.
 
-Currently, two official plugins are available:
+## What it does
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+- accepts a public Solana wallet address
+- validates that the address decodes to a 32-byte Solana public key
+- checks the configured $ANSEM mint and distribution wallet
+- searches a limited set of recent confirmed transactions
+- displays a clear on-chain receipt when a direct tracked transfer is found
 
-## React Compiler
+## Safety
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+The checker never requests a wallet connection, private key, seed phrase or transaction approval. A tracked result is not financial advice and does not mean the token or project is officially endorsed or risk-free.
 
-## Expanding the ESLint configuration
+## Local development
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+```bash
+cp .env.example .env.local
+npm install
+npm run dev
+```
+
+Set `SOLANA_RPC_URL` in `.env.local` to a private Solana Mainnet RPC endpoint. Never commit the real endpoint or API key.
+
+## Validation
+
+```bash
+npm run lint
+npm run build
+```
