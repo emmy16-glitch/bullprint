@@ -18,7 +18,7 @@ class SolanaRpcError extends Error {
 
 function safeErrorMessage(error) {
   if (error?.forbidden) {
-    return 'The Solana data provider rejected this request. BullPrint will try again when the RPC service is available.'
+    return 'The Solana data provider rejected this request. $ANSEM Wallet Checker will try again when the RPC service is available.'
   }
 
   if (error?.rateLimited) {
@@ -26,10 +26,10 @@ function safeErrorMessage(error) {
   }
 
   if (error?.retryable || error?.name === 'AbortError' || error instanceof TypeError) {
-    return 'BullPrint could not reach the public Solana RPC endpoint. Please try again shortly.'
+    return '$ANSEM Wallet Checker could not reach the public Solana RPC endpoint. Please try again shortly.'
   }
 
-  return error?.message || 'BullPrint could not complete the live Solana lookup. Please try again later.'
+  return error?.message || '$ANSEM Wallet Checker could not complete the live Solana lookup. Please try again later.'
 }
 
 function isTemporaryNetworkError(error) {
@@ -50,7 +50,7 @@ async function rpcRequestOnce(method, params) {
 
     if (!response.ok) {
       if (response.status === 403) {
-        throw new SolanaRpcError('The Solana data provider rejected this request. BullPrint will try again when the RPC service is available.', { forbidden: true })
+        throw new SolanaRpcError('The Solana data provider rejected this request. $ANSEM Wallet Checker will try again when the RPC service is available.', { forbidden: true })
       }
 
       if (response.status === 429) {
@@ -246,7 +246,7 @@ export async function findTrackedDistribution(walletAddress) {
     if (tokenAccounts.length === 0) {
       return {
         found: false,
-        reason: 'No BullPrint tracked mint token accounts were found for this wallet.',
+        reason: 'No tracked $ANSEM mint token accounts were found for this wallet.',
       }
     }
 
@@ -279,7 +279,7 @@ export async function findTrackedDistribution(walletAddress) {
 
     return {
       found: false,
-      reason: 'No configured distribution record was found within BullPrint’s limited recent transaction search.',
+      reason: 'No matching $ANSEM distribution was found within the recent transaction range checked.',
     }
   } catch (error) {
     return {
