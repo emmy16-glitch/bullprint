@@ -1,38 +1,66 @@
 import { useRef, useState } from 'react'
-import { findTrackedDistribution } from './services/solanaRpc'
+import { findTrackedDistribution, TRACKED_DISTRIBUTION_WALLET, TRACKED_MINT } from './services/solanaRpc'
 import './App.css'
 import './trackerStates.css'
 
 const BASE58_ALPHABET = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz'
+const TOKEN_IMAGE_URL = 'https://images.pump.fun/coin-image/9cRCn9rGT8V2imeM2BaKs13yhMEais3ruM3rPvTGpump?src=https%3A%2F%2Fedge.uxento.io%2Fimage%2FCx83EqERns2VuiKrkwHegTuECVqZebsNhJ3dCU8CucWG&variant=256x256'
 
-function BullPrintLogo({ compact = false }) {
+function TokenLogo({ large = false }) {
+  const [imageFailed, setImageFailed] = useState(false)
+
   return (
-    <span className={`logoMark ${compact ? 'logoMark--compact' : ''}`} aria-hidden="true">
-      <svg viewBox="0 0 64 64" role="presentation" focusable="false">
-        <path className="horn horn--left" d="M8 17c9 1 14 6 17 14" />
-        <path className="horn horn--right" d="M56 17c-9 1-14 6-17 14" />
-        <path className="face" d="M19 29c3-8 9-12 13-12s10 4 13 12c2 6-1 15-13 20C20 44 17 35 19 29Z" />
-        <path className="print" d="M25 31c2-5 12-5 14 0" />
-        <path className="print" d="M24 37c4-6 12-6 16 0" />
-        <path className="print" d="M27 43c3-3 7-3 10 0" />
-        <circle className="eye" cx="26" cy="30" r="1.7" />
-        <circle className="eye" cx="38" cy="30" r="1.7" />
-      </svg>
+    <span className={`tokenLogo ${large ? 'tokenLogo--large' : ''}`} aria-hidden="true">
+      {imageFailed ? (
+        <span className="tokenLogoFallback">$A</span>
+      ) : (
+        <img src={TOKEN_IMAGE_URL} alt="" onError={() => setImageFailed(true)} />
+      )}
     </span>
+  )
+}
+
+function ArrowIcon() {
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden="true">
+      <path d="M5 12h14M14 7l5 5-5 5" />
+    </svg>
+  )
+}
+
+function CheckIcon() {
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden="true">
+      <path d="M5 12.5 10 17 19 7" />
+    </svg>
+  )
+}
+
+function ShieldIcon() {
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden="true">
+      <path d="M12 3 19 6v5c0 4.6-2.8 8-7 10-4.2-2-7-5.4-7-10V6l7-3Z" />
+      <path d="m8.5 12 2.2 2.2 4.8-5" />
+    </svg>
   )
 }
 
 function Header() {
   return (
     <header className="siteHeader">
-      <a className="brand" href="#top" aria-label="BullPrint home">
-        <BullPrintLogo />
-        <span>BullPrint</span>
+      <a className="brand" href="#top" aria-label="$ANSEM Wallet Checker home">
+        <TokenLogo />
+        <span className="brandCopy">
+          <strong>$ANSEM</strong>
+          <small>Wallet Checker</small>
+        </span>
       </a>
+
       <nav className="headerNav" aria-label="Primary navigation">
-        <a href="#how-it-works">How It Works</a>
-        <a href="#security">Security</a>
-        <a className="navButton" href="#tracker">Track a Drop</a>
+        <a href="#checker">Checker</a>
+        <a href="#how-it-works">How it works</a>
+        <a href="#community">Community</a>
+        <a className="navButton" href="#checker">Check a wallet</a>
       </nav>
     </header>
   )
@@ -79,6 +107,64 @@ function LoadingSpinner({ small = false }) {
   return <span className={`loadingSpinner ${small ? 'loadingSpinner--small' : ''}`} aria-hidden="true" />
 }
 
+function TrustPill({ children }) {
+  return (
+    <span className="trustPill">
+      <CheckIcon />
+      {children}
+    </span>
+  )
+}
+
+function Hero() {
+  return (
+    <section className="heroSection" aria-labelledby="hero-title">
+      <div className="heroCopy">
+        <p className="eyebrow">Community-built · Read-only · Solana Mainnet</p>
+        <h1 id="hero-title">Check the chain. <span>Know the story.</span></h1>
+        <p className="lead">
+          Verify whether a public wallet received a tracked $ANSEM distribution—without connecting a wallet or approving a transaction.
+        </p>
+
+        <div className="heroActions">
+          <a className="primaryLink" href="#checker">
+            Check a wallet
+            <ArrowIcon />
+          </a>
+          <a className="secondaryLink" href="#how-it-works">See how it works</a>
+        </div>
+
+        <div className="trustRow" aria-label="Security highlights">
+          <TrustPill>No wallet connection</TrustPill>
+          <TrustPill>No private key</TrustPill>
+          <TrustPill>Live RPC data</TrustPill>
+        </div>
+      </div>
+
+      <div className="heroVisual" aria-label="$ANSEM token visual">
+        <div className="orbit orbitOne" />
+        <div className="orbit orbitTwo" />
+        <div className="heroCoin">
+          <TokenLogo large />
+          <div className="heroCoinText">
+            <span>TRACKED TOKEN</span>
+            <strong>$ANSEM</strong>
+            <small>THE BLACK BULL</small>
+          </div>
+        </div>
+        <div className="floatingCard floatingCard--top">
+          <span className="statusDot" />
+          Live on Solana
+        </div>
+        <div className="floatingCard floatingCard--bottom">
+          <ShieldIcon />
+          Read-only verification
+        </div>
+      </div>
+    </section>
+  )
+}
+
 function WalletSearchForm({ onResult }) {
   const [wallet, setWallet] = useState('')
   const [message, setMessage] = useState('')
@@ -97,7 +183,7 @@ function WalletSearchForm({ onResult }) {
     if (isLoading) return
 
     if (!trimmedWallet) {
-      showMessage('Enter a public Solana wallet address to continue.', 'validation')
+      showMessage('Paste a public Solana wallet address to continue.', 'validation')
       onResult({ status: 'idle' })
       return
     }
@@ -117,18 +203,22 @@ function WalletSearchForm({ onResult }) {
       const lookup = await findTrackedDistribution(trimmedWallet)
 
       if (lookup.error) {
-        showMessage(lookup.message, 'error')
+        setMessage('')
+        setMessageType('')
         onResult({ status: 'error', message: lookup.message })
       } else if (lookup.found) {
-        showMessage('Tracked distribution found through live Solana RPC data.', 'found')
+        setMessage('')
+        setMessageType('')
         onResult({ status: 'found', data: lookup })
       } else {
-        showMessage(lookup.reason, 'not-found')
+        setMessage('')
+        setMessageType('')
         onResult({ status: 'not-found', message: lookup.reason })
       }
     } catch {
-      const fallbackMessage = 'BullPrint could not complete the live lookup. Please try again shortly.'
-      showMessage(fallbackMessage, 'error')
+      const fallbackMessage = 'The live lookup could not be completed. Please try again shortly.'
+      setMessage('')
+      setMessageType('')
       onResult({ status: 'error', message: fallbackMessage })
     } finally {
       setIsLoading(false)
@@ -145,8 +235,16 @@ function WalletSearchForm({ onResult }) {
   }
 
   return (
-    <form className="walletForm" id="tracker" onSubmit={handleSubmit} noValidate>
-      <label htmlFor="walletAddress">Public Solana wallet address</label>
+    <form className="walletForm" onSubmit={handleSubmit} noValidate>
+      <div className="formHeading">
+        <div>
+          <span className="sectionKicker">Public address only</span>
+          <h3>Enter a Solana wallet</h3>
+        </div>
+        <span className="networkBadge"><span className="statusDot" /> Mainnet</span>
+      </div>
+
+      <label htmlFor="walletAddress">Wallet address</label>
       <div className="inputRow">
         <input
           id="walletAddress"
@@ -157,7 +255,7 @@ function WalletSearchForm({ onResult }) {
           autoCorrect="off"
           spellCheck="false"
           inputMode="text"
-          placeholder="Paste public address only"
+          placeholder="Paste a Solana wallet address"
           value={wallet}
           onChange={handleWalletChange}
           aria-describedby="walletHelp walletLimitations walletMessage"
@@ -168,13 +266,18 @@ function WalletSearchForm({ onResult }) {
         <button type="submit" className="primaryButton" disabled={isLoading}>
           <span className="buttonContent">
             {isLoading && <LoadingSpinner small />}
-            {isLoading ? 'Checking Solana…' : 'Check My BullPrint'}
+            {isLoading ? 'Checking…' : 'Check Wallet'}
           </span>
         </button>
       </div>
-      <p className="walletHelp" id="walletHelp">No wallet connection. Public addresses only.</p>
-      <p className="limitationNote" id="walletLimitations">BullPrint checks a limited set of recent transactions using live Solana Mainnet RPC data. No result does not prove that a transfer never occurred.</p>
-      <p className="limitationNote">Tracked by BullPrint does not mean officially endorsed.</p>
+
+      <p className="walletHelp" id="walletHelp">
+        The checker never requests a wallet connection, signature, private key or seed phrase.
+      </p>
+      <p className="limitationNote" id="walletLimitations">
+        Results cover the configured mint and a limited set of recent confirmed transactions. No match does not prove that a transfer never occurred.
+      </p>
+
       {message && (
         <p className={`formMessage formMessage--${messageType}`} id="walletMessage" role="status" aria-live="polite">
           {messageType === 'loading' && <LoadingSpinner small />}
@@ -185,32 +288,16 @@ function WalletSearchForm({ onResult }) {
   )
 }
 
-function Hero({ onResult }) {
+function CheckerSection({ onResult }) {
   return (
-    <section className="heroSection" aria-labelledby="hero-title">
-      <div className="heroCopy">
-        <p className="eyebrow">Read-only Solana distribution tracker</p>
-        <h1 id="hero-title">Every drop has a story.</h1>
-        <p className="lead">BullPrint turns tracked $ANSEM distributions into clear, shareable on-chain receipts using public wallet information.</p>
-        <p className="clarifier">Paste a public wallet address to check for a configured distribution record using live, read-only Solana Mainnet RPC data.</p>
+    <section className="checkerSection" id="checker" aria-labelledby="checker-title">
+      <div className="sectionHeading sectionHeading--center">
+        <p className="eyebrow">$ANSEM Wallet Checker</p>
+        <h2 id="checker-title">One address. One clear answer.</h2>
+        <p>Paste a public wallet address and check it against the distribution wallet and mint configured by this community tool.</p>
       </div>
       <WalletSearchForm onResult={onResult} />
     </section>
-  )
-}
-
-function SecurityNotice() {
-  const items = ['No wallet connection', 'No private key', 'No seed phrase', 'No transaction approval']
-  return (
-    <aside className="securityStrip" aria-label="Security notice">
-      {items.map((item) => (
-        <span className="securityPill" key={item}>
-          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12.5 10 17 19 7" /></svg>
-          {item}
-        </span>
-      ))}
-      <p>BullPrint only uses public blockchain information. Never enter your seed phrase or private key into any website.</p>
-    </aside>
   )
 }
 
@@ -250,7 +337,7 @@ function LookupResult({ result }) {
           <div className="resultHeader">
             <span className="recordBadge">Live lookup</span>
             <h2>Checking the blockchain</h2>
-            <p>BullPrint is checking token accounts and recent confirmed transactions. This may take a few seconds.</p>
+            <p>Looking through token accounts and recent confirmed transactions. This can take a few seconds.</p>
           </div>
         </div>
       </section>
@@ -266,9 +353,9 @@ function LookupResult({ result }) {
           <ResultStatusIcon status={result.status} />
           <div className="resultHeader">
             <span className="recordBadge">{isError ? 'Lookup issue' : 'No match'}</span>
-            <h2 id="result-title">{isError ? 'Live Lookup Unavailable' : 'No Tracked Distribution Found'}</h2>
+            <h2 id="result-title">{isError ? 'Live lookup unavailable' : 'No tracked distribution found'}</h2>
             <p>{result.message}</p>
-            {!isError && <p className="resultHint">The lookup completed successfully. This result only covers BullPrint’s configured mint and limited recent transaction search.</p>}
+            {!isError && <p className="resultHint">The lookup completed successfully. This result is limited to the configured $ANSEM mint and recent transaction search.</p>}
           </div>
         </div>
       </section>
@@ -287,7 +374,7 @@ function LookupResult({ result }) {
   }
 
   function generateCard() {
-    setCardMessage('BullPrint card preview is shown below. Downloadable image generation will be added in a future iteration.')
+    setCardMessage('Your $ANSEM receipt is shown below. Downloadable image export can be added next.')
     receiptRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' })
   }
 
@@ -296,45 +383,56 @@ function LookupResult({ result }) {
       <div className="resultStatusLayout">
         <ResultStatusIcon status="found" />
         <div className="resultHeader">
-          <span className="recordBadge">Verified match</span>
-          <h2 id="result-title">Tracked Distribution Found</h2>
-          <p>This match was found by checking live, read-only Solana Mainnet RPC data.</p>
+          <span className="recordBadge">On-chain match</span>
+          <h2 id="result-title">$ANSEM distribution verified</h2>
+          <p>A matching transfer was found using live, read-only Solana Mainnet RPC data.</p>
         </div>
       </div>
+
+      <div className="amountSpotlight">
+        <span>Amount received</span>
+        <strong>{data.amountReceived} <small>$ANSEM</small></strong>
+      </div>
+
       <dl className="resultGrid">
         <div><dt>Verification</dt><dd>{data.verification}</dd></div>
-        <div><dt>Amount received</dt><dd>{data.amountReceived}</dd></div>
         <div><dt>Recipient</dt><dd title={data.recipient}>{shortenAddress(data.recipient)}</dd></div>
-        <div><dt>BullPrint tracked distribution wallet</dt><dd title={data.sourceWallet}>{shortenAddress(data.sourceWallet)}</dd></div>
-        <div><dt>BullPrint tracked mint</dt><dd title={data.tokenMint}>{shortenAddress(data.tokenMint)}</dd></div>
+        <div><dt>Distribution wallet</dt><dd title={data.sourceWallet}>{shortenAddress(data.sourceWallet)}</dd></div>
+        <div><dt>Tracked mint</dt><dd title={data.tokenMint}>{shortenAddress(data.tokenMint)}</dd></div>
         <div><dt>Network</dt><dd>{data.network}</dd></div>
         <div><dt>Date</dt><dd>{formatDate(data.blockTime)}</dd></div>
         <div className="wideResult"><dt>Transaction signature</dt><dd title={data.transactionSignature}>{data.transactionSignature}</dd></div>
       </dl>
+
       <div className="resultActions">
         <a className="buttonLink" href={data.explorerUrl} target="_blank" rel="noreferrer">Open in Solana Explorer</a>
-        <button type="button" onClick={copySignature}>Copy transaction signature</button>
-        <button type="button" className="primaryButton" onClick={generateCard}>Generate BullPrint Card</button>
+        <button type="button" onClick={copySignature}>Copy signature</button>
+        <button type="button" className="primaryButton" onClick={generateCard}>Generate $ANSEM Receipt</button>
       </div>
+
       <div className="statusMessages" aria-live="polite">
         {copyMessage && <p>{copyMessage}</p>}
         {cardMessage && <p>{cardMessage}</p>}
       </div>
-      <BullPrintReceipt refProp={receiptRef} result={data} />
+
+      <AnsemReceipt refProp={receiptRef} result={data} />
     </section>
   )
 }
 
-function BullPrintReceipt({ refProp, result }) {
+function AnsemReceipt({ refProp, result }) {
   return (
-    <article className="receiptCard" ref={refProp} aria-label="BullPrint receipt card">
-      <div className="receiptTop"><BullPrintLogo compact /><span>BULLPRINT / LIVE RPC MATCH</span></div>
-      <p className="receiptLabel">Tracked Distribution</p>
-      <strong>{result.amountReceived}</strong>
+    <article className="receiptCard" ref={refProp} aria-label="$ANSEM distribution receipt">
+      <div className="receiptTop">
+        <div className="receiptBrand"><TokenLogo /><span>$ANSEM RECEIPT</span></div>
+        <span className="receiptStatus"><span className="statusDot" /> LIVE MATCH</span>
+      </div>
+      <p className="receiptLabel">Tracked distribution</p>
+      <strong>{result.amountReceived} <small>$ANSEM</small></strong>
       <div className="receiptMeta"><span>Recipient</span><b title={result.recipient}>{shortenAddress(result.recipient)}</b></div>
       <div className="receiptMeta"><span>Network</span><b>{result.network}</b></div>
-      <div className="receiptMeta"><span>Status</span><b>{result.verification}</b></div>
-      <p className="receiptStory">Every drop has a story.</p>
+      <div className="receiptMeta"><span>Date</span><b>{formatDate(result.blockTime)}</b></div>
+      <p className="receiptStory">Community contribution, documented on-chain.</p>
       <p className="receiptId">{result.transactionSignature}</p>
     </article>
   )
@@ -342,30 +440,100 @@ function BullPrintReceipt({ refProp, result }) {
 
 function HowItWorks() {
   const steps = [
-    ['Paste a public address', 'BullPrint never needs access to the wallet.'],
-    ['Check tracked transfers', 'BullPrint compares recent public token-account transactions against configured distribution records.'],
-    ['Share the story', 'Generate a clear receipt that documents the distribution.'],
+    {
+      number: '01',
+      title: 'Paste a public address',
+      text: 'Use the public Solana address you want to check. Nothing is connected or signed.',
+    },
+    {
+      number: '02',
+      title: 'Check tracked transfers',
+      text: 'The tool compares recent token-account activity with the configured mint and distribution wallet.',
+    },
+    {
+      number: '03',
+      title: 'Read the receipt',
+      text: 'A matching transfer becomes a clear receipt with the amount, date and transaction signature.',
+    },
   ]
+
   return (
     <section className="infoSection" id="how-it-works" aria-labelledby="how-title">
-      <p className="eyebrow">How BullPrint Works</p>
-      <h2 id="how-title">A simple read-only receipt flow.</h2>
-      <div className="steps">{steps.map(([title, text], index) => <article className="stepCard" key={title}><span>{index + 1}</span><h3>{title}</h3><p>{text}</p></article>)}</div>
+      <div className="sectionHeading">
+        <p className="eyebrow">How it works</p>
+        <h2 id="how-title">On-chain proof without the usual complexity.</h2>
+      </div>
+      <div className="steps">
+        {steps.map((step) => (
+          <article className="stepCard" key={step.number}>
+            <span>{step.number}</span>
+            <h3>{step.title}</h3>
+            <p>{step.text}</p>
+          </article>
+        ))}
+      </div>
     </section>
   )
 }
 
-function SecuritySection() {
+function CommunitySection() {
   return (
-    <section className="infoSection securitySection" id="security" aria-labelledby="security-title">
-      <p className="eyebrow">Security</p>
-      <h2 id="security-title">Careful by design, never a guarantee of safety.</h2>
-      <ul>
-        <li>BullPrint is read-only.</li>
-        <li>BullPrint will never request a seed phrase, private key or transaction approval.</li>
-        <li>A tracked transfer does not guarantee that a token or website is safe.</li>
-        <li>Users should independently verify blockchain information.</li>
-      </ul>
+    <section className="communitySection" id="community" aria-labelledby="community-title">
+      <div className="communityStatement">
+        <p className="eyebrow">Built as a contribution</p>
+        <h2 id="community-title">Some people create content. Some people build the tools behind it.</h2>
+        <p>
+          Communities grow through more than price talk. Videos create attention, memes create culture, and useful products create trust. This checker is one small piece of infrastructure for making tracked distributions easier to verify, explain and share.
+        </p>
+        <p>
+          The goal is not to promise rewards. It is to help the community document real participation with public on-chain evidence.
+        </p>
+      </div>
+
+      <div className="communityCards">
+        <article>
+          <span>01</span>
+          <h3>Make participation visible</h3>
+          <p>Turn complicated transaction history into a receipt people can understand.</p>
+        </article>
+        <article>
+          <span>02</span>
+          <h3>Give campaigns context</h3>
+          <p>Help community distributions carry a clear, verifiable story.</p>
+        </article>
+        <article>
+          <span>03</span>
+          <h3>Build before asking</h3>
+          <p>Contribute something useful instead of waiting for the community to do everything.</p>
+        </article>
+      </div>
+    </section>
+  )
+}
+
+function SafetySection() {
+  const items = [
+    ['No wallet connection', 'The checker only accepts a public address.'],
+    ['No secret information', 'Never enter a seed phrase or private key.'],
+    ['No transaction approval', 'The tool cannot move funds or request a signature.'],
+    ['No endorsement claim', 'A tracked result does not prove a token or project is safe.'],
+  ]
+
+  return (
+    <section className="safetySection" id="safety" aria-labelledby="safety-title">
+      <div className="sectionHeading sectionHeading--center">
+        <p className="eyebrow">Safety by design</p>
+        <h2 id="safety-title">Read-only means read-only.</h2>
+        <p>The checker works with public blockchain information and does not need control of anyone’s wallet.</p>
+      </div>
+      <div className="safetyGrid">
+        {items.map(([title, text]) => (
+          <article key={title}>
+            <ShieldIcon />
+            <div><h3>{title}</h3><p>{text}</p></div>
+          </article>
+        ))}
+      </div>
     </section>
   )
 }
@@ -373,9 +541,18 @@ function SecuritySection() {
 function Footer() {
   return (
     <footer className="siteFooter">
-      <div><BullPrintLogo compact /><strong>BullPrint</strong><p>Built for the $ANSEM community.</p></div>
-      <p>Community-built and read-only. BullPrint is not financial advice and does not guarantee token safety.</p>
-      <nav aria-label="Footer navigation"><a href="#how-it-works">How It Works</a><a href="#security">Security</a><a href="https://github.com/emmy16-glitch/bullprint" target="_blank" rel="noreferrer">GitHub</a></nav>
+      <div className="footerBrand">
+        <TokenLogo />
+        <div><strong>$ANSEM Wallet Checker</strong><p>Community-built on Solana.</p></div>
+      </div>
+      <p className="footerDisclaimer">
+        This is a read-only community tool and is not financial advice or an official endorsement. The displayed token image is loaded from the tracked Pump listing.
+      </p>
+      <nav aria-label="Footer navigation">
+        <a href="#checker">Checker</a>
+        <a href="#community">Community</a>
+        <a href="https://github.com/emmy16-glitch/bullprint" target="_blank" rel="noreferrer">GitHub</a>
+      </nav>
     </footer>
   )
 }
@@ -385,19 +562,22 @@ function App() {
 
   return (
     <div className="appShell" id="top">
+      <div className="backgroundGrid" />
       <div className="ambient ambientOne" />
       <div className="ambient ambientTwo" />
       <Header />
       <main>
-        <Hero onResult={setResult} />
-        <SecurityNotice />
+        <Hero />
+        <CheckerSection onResult={setResult} />
         <LookupResult result={result} />
         <HowItWorks />
-        <SecuritySection />
+        <CommunitySection />
+        <SafetySection />
       </main>
       <Footer />
     </div>
   )
 }
 
+export { TRACKED_DISTRIBUTION_WALLET, TRACKED_MINT }
 export default App
