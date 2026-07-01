@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Icon } from './components/Icons'
 import { TokenLogo } from './components/TokenLogo'
+import { DistributionMonitor } from './components/DistributionMonitor'
 import { WalletChecker } from './components/WalletChecker'
 import { WalletResult } from './components/WalletResult'
 import './App.css'
@@ -16,6 +17,7 @@ function Header() {
         <span className="brandText"><strong>$ANSEM</strong><span>Wallet Checker</span></span>
       </a>
       <nav className="headerNav" aria-label="Primary navigation">
+        <a href="#distribution">Live activity</a>
         <a href="#about">About</a>
         <a href="#safety">Safety</a>
         <a className="headerAction" href="#checker">Check wallet</a>
@@ -81,7 +83,7 @@ function Footer() {
   return (
     <footer className="siteFooter">
       <div className="footerBrand"><TokenLogo src={TOKEN_IMAGE_URL} /><span><strong>$ANSEM Wallet Checker</strong><small>Community-built on Solana.</small></span></div>
-      <nav aria-label="Footer navigation"><a href="#about">About</a><a href="#checker">Checker</a><a href="#safety">Safety</a></nav>
+      <nav aria-label="Footer navigation"><a href="#distribution">Live activity</a><a href="#about">About</a><a href="#checker">Checker</a><a href="#safety">Safety</a></nav>
       <p>Read-only community tool. Verify blockchain information independently.</p>
     </footer>
   )
@@ -96,6 +98,7 @@ function App() {
       <Header />
       <main>
         <Introduction />
+        <DistributionMonitor />
         <WalletChecker onResult={setResult} />
         <WalletResult result={result} logoSrc={TOKEN_IMAGE_URL} />
         <HowItWorks />
