@@ -1,4 +1,4 @@
-const DEFAULT_SOLANA_RPC_URL = 'https://api.mainnet.solana.com'
+const DEFAULT_SOLANA_RPC_URL = 'https://solana-rpc.publicnode.com'
 const REQUEST_TIMEOUT_MS = 15_000
 const ALLOWED_RPC_METHODS = new Set([
   'getTokenAccountsByOwner',
