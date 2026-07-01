@@ -1,0 +1,179 @@
+.walletHelp {
+  margin: .85rem 0 0;
+  color: #9ca4bd;
+  line-height: 1.65;
+}
+
+.inputError {
+  border-color: rgba(255, 113, 137, .78);
+  box-shadow: 0 0 0 3px rgba(255, 113, 137, .1);
+}
+
+.buttonContent,
+.formMessage,
+.resultStatusLayout {
+  display: flex;
+  align-items: center;
+}
+
+.buttonContent {
+  justify-content: center;
+  gap: .55rem;
+}
+
+.loadingSpinner {
+  display: inline-block;
+  flex: 0 0 auto;
+  width: 2.7rem;
+  height: 2.7rem;
+  border: 3px solid rgba(185, 130, 255, .24);
+  border-top-color: #57fff1;
+  border-right-color: #b982ff;
+  border-radius: 50%;
+  animation: bullPrintSpin .8s linear infinite;
+}
+
+.loadingSpinner--small {
+  width: 1.05rem;
+  height: 1.05rem;
+  border-width: 2px;
+}
+
+.formMessage {
+  gap: .55rem;
+  padding: .78rem .9rem;
+  border: 1px solid transparent;
+  border-radius: 1rem;
+  line-height: 1.45;
+}
+
+.formMessage--loading {
+  color: #d9c8ff;
+  border-color: rgba(185, 130, 255, .3);
+  background: rgba(185, 130, 255, .08);
+}
+
+.formMessage--validation,
+.formMessage--error {
+  color: #ff9db0;
+  border-color: rgba(255, 113, 137, .32);
+  background: rgba(255, 113, 137, .08);
+}
+
+.formMessage--found {
+  color: #70ffe9;
+  border-color: rgba(87, 255, 241, .28);
+  background: rgba(87, 255, 241, .08);
+}
+
+.formMessage--not-found {
+  color: #f6ce82;
+  border-color: rgba(242, 195, 107, .3);
+  background: rgba(242, 195, 107, .08);
+}
+
+.resultStatusLayout {
+  align-items: flex-start;
+  gap: 1rem;
+}
+
+.resultStatusIcon {
+  display: inline-grid;
+  place-items: center;
+  flex: 0 0 auto;
+  width: 3.25rem;
+  height: 3.25rem;
+  border: 1px solid rgba(255, 255, 255, .14);
+  border-radius: 1.1rem;
+  background: rgba(255, 255, 255, .06);
+}
+
+.resultStatusIcon svg {
+  width: 1.55rem;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2.6;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.resultStatusIcon--found {
+  color: #57fff1;
+  border-color: rgba(87, 255, 241, .35);
+  background: rgba(87, 255, 241, .1);
+}
+
+.resultStatusIcon--not-found {
+  color: #f2c36b;
+  border-color: rgba(242, 195, 107, .36);
+  background: rgba(242, 195, 107, .1);
+}
+
+.resultStatusIcon--error {
+  color: #ff7189;
+  border-color: rgba(255, 113, 137, .38);
+  background: rgba(255, 113, 137, .1);
+}
+
+.resultPanel--loading {
+  border-color: rgba(185, 130, 255, .38);
+  background: linear-gradient(180deg, rgba(43, 31, 70, .76), rgba(12, 13, 20, .9));
+}
+
+.resultPanel--found {
+  border-color: rgba(87, 255, 241, .38);
+  background: linear-gradient(180deg, rgba(18, 54, 54, .62), rgba(12, 13, 20, .9));
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .08), 0 30px 90px rgba(0, 0, 0, .28), 0 0 45px rgba(87, 255, 241, .07);
+}
+
+.resultPanel--not-found {
+  border-color: rgba(242, 195, 107, .4);
+  background: linear-gradient(180deg, rgba(58, 45, 24, .56), rgba(12, 13, 20, .9));
+}
+
+.resultPanel--error {
+  border-color: rgba(255, 113, 137, .42);
+  background: linear-gradient(180deg, rgba(62, 25, 36, .58), rgba(12, 13, 20, .9));
+}
+
+.resultPanel--found .recordBadge {
+  color: #70ffe9;
+  border-color: rgba(87, 255, 241, .38);
+}
+
+.resultPanel--not-found .recordBadge {
+  color: #f6ce82;
+  border-color: rgba(242, 195, 107, .38);
+  background: rgba(242, 195, 107, .08);
+}
+
+.resultPanel--error .recordBadge {
+  color: #ff9db0;
+  border-color: rgba(255, 113, 137, .38);
+  background: rgba(255, 113, 137, .08);
+}
+
+.resultHint {
+  margin-top: .55rem;
+  font-size: .92rem;
+}
+
+@keyframes bullPrintSpin {
+  to { transform: rotate(360deg); }
+}
+
+@media (max-width: 430px) {
+  .resultStatusLayout {
+    gap: .8rem;
+  }
+
+  .resultStatusIcon {
+    width: 2.75rem;
+    height: 2.75rem;
+    border-radius: .9rem;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .loadingSpinner { animation-duration: 1.6s !important; }
+}
