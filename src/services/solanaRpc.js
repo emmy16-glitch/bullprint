@@ -1,4 +1,4 @@
-const RPC_ENDPOINT = 'https://api.mainnet.solana.com'
+const RPC_ENDPOINT = '/api/solana-rpc'
 const TRACKED_MINT = '9cRCn9rGT8V2imeM2BaKs13yhMEais3ruM3rPvTGpump'
 const TRACKED_DISTRIBUTION_WALLET = 'GV6UUmNxz2RpKxmNAPadYKb7uQpszwqQAu3qLJxVdC52'
 const REQUEST_TIMEOUT_MS = 15_000
@@ -7,15 +7,20 @@ const SIGNATURE_LIMIT = 25
 const MAX_TRANSACTIONS_TO_CHECK = 50
 
 class SolanaRpcError extends Error {
-  constructor(message, { retryable = false, rateLimited = false } = {}) {
+  constructor(message, { retryable = false, rateLimited = false, forbidden = false } = {}) {
     super(message)
     this.name = 'SolanaRpcError'
     this.retryable = retryable
     this.rateLimited = rateLimited
+    this.forbidden = forbidden
   }
 }
 
 function safeErrorMessage(error) {
+  if (error?.forbidden) {
+    return 'The Solana data provider rejected this request. BullPrint will try again when the RPC service is available.'
+  }
+
   if (error?.rateLimited) {
     return 'The public Solana RPC endpoint is rate-limiting requests. Please wait a moment and try again.'
   }
@@ -44,6 +49,10 @@ async function rpcRequestOnce(method, params) {
     })
 
     if (!response.ok) {
+      if (response.status === 403) {
+        throw new SolanaRpcError('The Solana data provider rejected this request. BullPrint will try again when the RPC service is available.', { forbidden: true })
+      }
+
       if (response.status === 429) {
         throw new SolanaRpcError('The public Solana RPC endpoint is rate-limiting requests. Please wait a moment and try again.', { rateLimited: true })
       }
@@ -102,15 +111,19 @@ function accountKeyToString(accountKey) {
   return accountKey?.pubkey || ''
 }
 
-function ownerForTokenBalance(transaction, balance) {
-  if (balance?.owner) return balance.owner
-
-  const accountKey = transaction?.transaction?.message?.accountKeys?.[balance?.accountIndex]
+function pubkeyForAccountIndex(transaction, accountIndex) {
+  const accountKey = transaction?.transaction?.message?.accountKeys?.[accountIndex]
   return accountKeyToString(accountKey)
 }
 
-function tokenBalanceDeltas(transaction, walletAddress) {
-  const deltas = new Map()
+function ownerForTokenBalance(transaction, balance) {
+  if (balance?.owner) return balance.owner
+
+  return pubkeyForAccountIndex(transaction, balance?.accountIndex)
+}
+
+function trackedTokenAccountBalances(transaction, walletAddress) {
+  const accounts = new Map()
   const balances = [
     ...(transaction?.meta?.preTokenBalances || []).map((balance) => ({ balance, side: 'pre' })),
     ...(transaction?.meta?.postTokenBalances || []).map((balance) => ({ balance, side: 'post' })),
@@ -122,37 +135,94 @@ function tokenBalanceDeltas(transaction, walletAddress) {
     const owner = ownerForTokenBalance(transaction, balance)
     if (owner !== walletAddress && owner !== TRACKED_DISTRIBUTION_WALLET) continue
 
-    const key = `${owner}:${balance.accountIndex}`
-    const existing = deltas.get(key) || { owner, decimals: decimalsFor(balance), pre: 0n, post: 0n }
+    const tokenAccount = pubkeyForAccountIndex(transaction, balance.accountIndex)
+    if (!tokenAccount) continue
+
+    const existing = accounts.get(tokenAccount) || {
+      tokenAccount,
+      owner,
+      mint: balance.mint,
+      decimals: decimalsFor(balance),
+      pre: 0n,
+      post: 0n,
+    }
+
     existing[side] = rawTokenAmount(balance)
+    existing.owner = owner
     existing.decimals = decimalsFor(balance)
-    deltas.set(key, existing)
+    accounts.set(tokenAccount, existing)
   }
 
-  return [...deltas.values()]
+  return accounts
+}
+
+function parsedInstructionAmount(info) {
+  const rawAmount = info?.tokenAmount?.amount ?? info?.amount
+  if (!rawAmount) return 0n
+
+  return BigInt(rawAmount)
+}
+
+function isParsedTrackedTokenTransfer(instruction) {
+  const parsed = instruction?.parsed
+  if (!parsed || instruction?.program !== 'spl-token') return false
+  if (parsed.type !== 'transfer' && parsed.type !== 'transferChecked') return false
+  if (parsed.info?.mint && parsed.info.mint !== TRACKED_MINT) return false
+
+  return true
+}
+
+function parsedInstructions(transaction) {
+  const topLevelInstructions = transaction?.transaction?.message?.instructions || []
+  const innerInstructions = (transaction?.meta?.innerInstructions || [])
+    .flatMap((innerInstructionGroup) => innerInstructionGroup.instructions || [])
+
+  return [...topLevelInstructions, ...innerInstructions]
+}
+
+function findDirectTrackedTransfer(transaction, walletAddress) {
+  const tokenAccounts = trackedTokenAccountBalances(transaction, walletAddress)
+
+  for (const instruction of parsedInstructions(transaction)) {
+    if (!isParsedTrackedTokenTransfer(instruction)) continue
+
+    const info = instruction.parsed.info || {}
+    const source = tokenAccounts.get(info.source)
+    const destination = tokenAccounts.get(info.destination)
+    const instructionAmount = parsedInstructionAmount(info)
+
+    if (!source || !destination || instructionAmount <= 0n) continue
+    if (source.mint !== TRACKED_MINT || destination.mint !== TRACKED_MINT) continue
+    if (source.owner !== TRACKED_DISTRIBUTION_WALLET || destination.owner !== walletAddress) continue
+
+    const recipientIncrease = destination.post - destination.pre
+    const sourceDecrease = source.pre - source.post
+
+    // Balance deltas validate this exact parsed transfer without allowing other
+    // unrelated changes in a batched transaction to create a false match.
+    if (recipientIncrease < instructionAmount || sourceDecrease < instructionAmount) continue
+
+    return {
+      amountReceived: instructionAmount,
+      decimals: destination.decimals,
+    }
+  }
+
+  return null
 }
 
 function matchTransaction(transaction, walletAddress, signature) {
   if (!transaction || transaction?.meta?.err) return null
 
-  const deltas = tokenBalanceDeltas(transaction, walletAddress)
-  const recipientIncrease = deltas
-    .filter((delta) => delta.owner === walletAddress)
-    .reduce((sum, delta) => sum + (delta.post - delta.pre), 0n)
-  const sourceDecrease = deltas
-    .filter((delta) => delta.owner === TRACKED_DISTRIBUTION_WALLET)
-    .reduce((sum, delta) => sum + (delta.pre - delta.post), 0n)
-
-  if (recipientIncrease <= 0n || sourceDecrease <= 0n) return null
-
-  const decimals = deltas.find((delta) => delta.owner === walletAddress)?.decimals ?? 0
+  const directTransfer = findDirectTrackedTransfer(transaction, walletAddress)
+  if (!directTransfer) return null
 
   return {
     found: true,
     recipient: walletAddress,
-    amountReceived: formatRawAmount(recipientIncrease, decimals),
-    rawAmountReceived: recipientIncrease.toString(),
-    decimals,
+    amountReceived: formatRawAmount(directTransfer.amountReceived, directTransfer.decimals),
+    rawAmountReceived: directTransfer.amountReceived.toString(),
+    decimals: directTransfer.decimals,
     tokenMint: TRACKED_MINT,
     sourceWallet: TRACKED_DISTRIBUTION_WALLET,
     transactionSignature: signature,
