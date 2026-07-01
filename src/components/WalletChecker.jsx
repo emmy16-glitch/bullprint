@@ -21,10 +21,7 @@ export function WalletChecker({ onResult }) {
   const [step, setStep] = useState(0)
 
   useEffect(() => {
-    if (!isLoading) {
-      setStep(0)
-      return undefined
-    }
+    if (!isLoading) return undefined
 
     const timer = window.setInterval(() => {
       setStep((current) => Math.min(current + 1, LOOKUP_STEPS.length - 1))
@@ -59,6 +56,7 @@ export function WalletChecker({ onResult }) {
 
     setWallet(value)
     setMessage('')
+    setStep(0)
     setIsLoading(true)
     onResult({ status: 'loading', wallet: value })
 
