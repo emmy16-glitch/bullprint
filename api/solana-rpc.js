@@ -72,7 +72,7 @@ export default async function handler(req, res) {
     })
 
     if (upstreamResponse.status === 403) {
-      return sendJson(res, 403, safeRpcError(id, -32003, 'The Solana data provider rejected this request. BullPrint will try again when the RPC service is available.'))
+      return sendJson(res, 403, safeRpcError(id, -32003, 'The Solana data provider rejected this request. Please try again when the RPC service is available.'))
     }
 
     if (upstreamResponse.status === 429) {
@@ -91,7 +91,7 @@ export default async function handler(req, res) {
   } catch (error) {
     const message = error?.name === 'AbortError'
       ? 'The Solana data provider timed out. Please try again shortly.'
-      : 'BullPrint could not reach the Solana data provider. Please try again shortly.'
+      : 'The $ANSEM Wallet Checker could not reach the Solana data provider. Please try again shortly.'
 
     return sendJson(res, 502, safeRpcError(id, -32000, message))
   } finally {
