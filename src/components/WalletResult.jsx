@@ -229,12 +229,6 @@ export function WalletResult({ result, logoSrc }) {
   const [copyMessage, setCopyMessage] = useState('')
   const [receiptOpen, setReceiptOpen] = useState(false)
 
-  useEffect(() => {
-    setTab('overview')
-    setCopyMessage('')
-    setReceiptOpen(false)
-  }, [result.status, result.wallet])
-
   if (result.status === 'idle') return null
 
   async function copyAddress() {
