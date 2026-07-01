@@ -97,22 +97,25 @@ export function DistributionMonitor() {
   }, [endpoint])
 
   useEffect(() => {
-    loadDistributionData()
+    const initialLoad = window.setTimeout(() => {
+      void loadDistributionData()
+    }, 0)
 
     const interval = window.setInterval(
-      () => loadDistributionData({ silent: true }),
+      () => void loadDistributionData({ silent: true }),
       REFRESH_INTERVAL_MS,
     )
 
     const refreshWhenVisible = () => {
       if (document.visibilityState === 'visible') {
-        loadDistributionData({ silent: true })
+        void loadDistributionData({ silent: true })
       }
     }
 
     document.addEventListener('visibilitychange', refreshWhenVisible)
 
     return () => {
+      window.clearTimeout(initialLoad)
       window.clearInterval(interval)
       document.removeEventListener('visibilitychange', refreshWhenVisible)
     }
