@@ -4,10 +4,6 @@
   "version": "1.0.0",
   "type": "module",
   "scripts": {
-    "build": "echo \"No build step required\"",
-    "deploy": "wrangler deploy"
-  },
-  "devDependencies": {
-    "wrangler": "^4.0.0"
+    "build": "echo \"No build step required\""
   }
 }
