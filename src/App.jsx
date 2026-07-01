@@ -8,6 +8,7 @@ import CommunitySection from './components/CommunitySection'
 import SafetySection from './components/SafetySection'
 import Footer from './components/Footer'
 import './App.css'
+import './responsive-fixes.css'
 
 function App() {
   const [result, setResult] = useState({ status: 'idle' })
