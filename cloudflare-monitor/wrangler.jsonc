@@ -1,0 +1,28 @@
+{
+  "$schema": "./node_modules/wrangler/config-schema.json",
+  "name": "ansem-distribution-monitor",
+  "main": "src/index.js",
+  "compatibility_date": "2026-07-01",
+  "workers_dev": true,
+  "observability": {
+    "enabled": true,
+    "head_sampling_rate": 1
+  },
+  "triggers": {
+    "crons": ["* * * * *"]
+  },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "ansem-distribution-db",
+      "database_id": "5e7879ac-727c-431f-8e79-2bb572e288ca"
+    }
+  ],
+  "secrets_store_secrets": [
+    {
+      "binding": "SOLANA_RPC_URL",
+      "store_id": "9bec77bd6cbe44a9ac278c3e7248df53",
+      "secret_name": "ANSEM_SOLANA_RPC"
+    }
+  ]
+}
