@@ -1,7 +1,7 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import './LiveDistributionMonitor.css'
 
-const ENDPOINT =
+const DEFAULT_ENDPOINT =
   'https://ansem-distribution-monitor.emmanuelokunlola16.workers.dev/api/distributions'
 
 const REFRESH_MS = 30_000
@@ -26,8 +26,8 @@ function formatTime(timestamp) {
   }).format(new Date(timestamp * 1000))
 }
 
-async function requestMonitorData(signal) {
-  const response = await fetch(ENDPOINT, {
+async function requestMonitorData(endpoint, signal) {
+  const response = await fetch(endpoint, {
     headers: { Accept: 'application/json' },
     cache: 'no-store',
     signal,
@@ -43,49 +43,66 @@ async function requestMonitorData(signal) {
 }
 
 export default function LiveDistributionMonitor() {
+  const endpoint =
+    import.meta.env.VITE_DISTRIBUTION_MONITOR_URL || DEFAULT_ENDPOINT
+
+  const hasDataRef = useRef(false)
   const [data, setData] = useState(null)
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
   const [error, setError] = useState('')
+  const [refreshWarning, setRefreshWarning] = useState('')
   const [updatedAt, setUpdatedAt] = useState(null)
 
   useEffect(() => {
     let active = true
-    let requestController = new AbortController()
+    let activeController = null
 
     const finishRequest = (payload) => {
       if (!active) return
+      hasDataRef.current = true
       setData(payload)
       setError('')
+      setRefreshWarning('')
       setLoading(false)
       setUpdatedAt(new Date())
     }
 
     const failRequest = (requestError) => {
-      if (!active) return
+      if (!active || requestError?.name === 'AbortError') return
       console.error('Live distribution monitor request failed:', requestError)
-      setError('Live distribution data could not be loaded right now.')
-      setLoading(false)
+
+      if (hasDataRef.current) {
+        setRefreshWarning(
+          'The latest refresh failed. Showing the most recent verified data.',
+        )
+      } else {
+        setError('Live distribution data could not be loaded right now.')
+        setLoading(false)
+      }
     }
 
-    requestMonitorData(requestController.signal).then(finishRequest).catch(failRequest)
+    const runRequest = () => {
+      if (activeController) return
+      activeController = new AbortController()
 
-    const intervalId = window.setInterval(() => {
-      requestController.abort()
-      requestController = new AbortController()
-      requestMonitorData(requestController.signal)
+      requestMonitorData(endpoint, activeController.signal)
         .then(finishRequest)
-        .catch((requestError) => {
-          if (requestError?.name !== 'AbortError') failRequest(requestError)
+        .catch(failRequest)
+        .finally(() => {
+          activeController = null
         })
-    }, REFRESH_MS)
+    }
+
+    runRequest()
+    const intervalId = window.setInterval(runRequest, REFRESH_MS)
 
     return () => {
       active = false
-      requestController.abort()
+      activeController?.abort()
       window.clearInterval(intervalId)
     }
-  }, [])
+  }, [endpoint])
 
   const refreshNow = async () => {
     setRefreshing(true)
@@ -93,17 +110,28 @@ export default function LiveDistributionMonitor() {
     const timeout = window.setTimeout(() => controller.abort(), 15_000)
 
     try {
-      const payload = await requestMonitorData(controller.signal)
+      const payload = await requestMonitorData(endpoint, controller.signal)
+      hasDataRef.current = true
       setData(payload)
       setError('')
+      setRefreshWarning('')
       setUpdatedAt(new Date())
     } catch (requestError) {
       console.error('Manual monitor refresh failed:', requestError)
-      setError(
-        requestError?.name === 'AbortError'
-          ? 'The monitor took too long to respond. Please try again.'
-          : 'Live distribution data could not be loaded right now.',
-      )
+
+      if (hasDataRef.current) {
+        setRefreshWarning(
+          requestError?.name === 'AbortError'
+            ? 'The refresh timed out. Showing the most recent verified data.'
+            : 'The latest refresh failed. Showing the most recent verified data.',
+        )
+      } else {
+        setError(
+          requestError?.name === 'AbortError'
+            ? 'The monitor took too long to respond. Please try again.'
+            : 'Live distribution data could not be loaded right now.',
+        )
+      }
     } finally {
       window.clearTimeout(timeout)
       setRefreshing(false)
@@ -164,10 +192,9 @@ export default function LiveDistributionMonitor() {
             </p>
           </div>
 
-          {error ? (
-            <div className="monitor-error" role="alert">
-              <p>{error}</p>
-              <button type="button" onClick={refreshNow}>Try again</button>
+          {refreshWarning ? (
+            <div className="monitor-refresh-warning" role="status">
+              {refreshWarning}
             </div>
           ) : null}
 
