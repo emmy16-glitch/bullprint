@@ -1,0 +1,154 @@
+html,
+body,
+#root,
+.app {
+  overflow-x: hidden;
+}
+
+main {
+  width: 100%;
+  min-width: 0;
+}
+
+main > *,
+.result-workspace,
+.result-top,
+.wallet-line,
+.state-card,
+.success-banner,
+.how,
+.step-grid,
+.monitor,
+.monitor-stats,
+.latest-box {
+  min-width: 0;
+}
+
+.step-grid {
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 280px), 1fr));
+}
+
+.monitor-stats {
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr));
+}
+
+.summary-grid {
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr));
+}
+
+.result-workspace {
+  overflow: hidden;
+}
+
+.state-card.indexing > .icon {
+  color: #fbbf24;
+}
+
+.state-card.indexing {
+  border-color: rgba(251, 191, 36, 0.34);
+  background: linear-gradient(90deg, #171d27, #0d1521);
+}
+
+.monitor-stats strong,
+.summary-grid strong,
+.state-card h2,
+.state-card p,
+.success-banner h2,
+.success-banner p {
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+@media (max-width: 900px) {
+  main {
+    padding-inline: 16px;
+  }
+
+  .step-grid,
+  .monitor-stats,
+  .summary-grid,
+  .overview-grid {
+    grid-template-columns: minmax(0, 1fr) !important;
+  }
+
+  .result-workspace {
+    width: auto !important;
+    max-width: none !important;
+    margin: 20px -16px 0 !important;
+    padding: 24px 16px !important;
+  }
+
+  .result-top,
+  .result-top > div,
+  .wallet-line {
+    width: 100%;
+  }
+
+  .result-top > div {
+    justify-content: flex-start;
+  }
+
+  .wallet-line code {
+    max-width: 100%;
+  }
+
+  .state-card,
+  .success-banner {
+    padding: 20px;
+  }
+
+  .latest-summary,
+  .monitor-toolbar {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+}
+
+@media (max-width: 480px) {
+  main {
+    padding-inline: 12px;
+  }
+
+  .result-workspace {
+    margin-inline: -12px !important;
+    padding-inline: 16px !important;
+  }
+
+  .how {
+    margin-top: 32px;
+  }
+
+  .how h2 {
+    text-align: left;
+  }
+
+  .step-card {
+    width: 100%;
+    padding: 18px 16px;
+  }
+
+  .result-top button,
+  .result-top a,
+  .back-btn {
+    width: 100%;
+    max-width: 100%;
+    justify-content: center;
+    text-align: center;
+  }
+
+  .state-card div {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .state-card div > * {
+    width: 100%;
+    justify-content: center;
+    text-align: center;
+  }
+
+  .monitor-stats strong,
+  .summary-grid strong {
+    font-size: clamp(1.45rem, 8vw, 2rem);
+  }
+}
