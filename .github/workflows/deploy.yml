@@ -1,0 +1,85 @@
+name: Deploy frontend Worker
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'index.html'
+      - 'src/**'
+      - 'public/**'
+      - 'worker/**'
+      - 'vite.config.js'
+      - 'wrangler.jsonc'
+      - 'package.json'
+      - 'package-lock.json'
+      - '.github/workflows/deploy.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deploy-ansem-wallet-checker
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Verify Cloudflare deployment secrets
+        shell: bash
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          set -euo pipefail
+          test -n "$CLOUDFLARE_API_TOKEN" || { echo 'Missing GitHub secret: CLOUDFLARE_API_TOKEN'; exit 1; }
+          test -n "$CLOUDFLARE_ACCOUNT_ID" || { echo 'Missing GitHub secret: CLOUDFLARE_ACCOUNT_ID'; exit 1; }
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Validate production build
+        run: |
+          npm run lint
+          npm run build
+
+      - name: Deploy to Cloudflare Workers
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          command: deploy
+
+      - name: Verify live metadata
+        shell: bash
+        run: |
+          set -euo pipefail
+          url='https://ansem-wallet-checker.emmanuelokunlola16.workers.dev/?metadata-check='
+          url+="${GITHUB_SHA}"
+          for attempt in $(seq 1 20); do
+            curl --fail --silent --show-error --max-time 30 "$url" -o app.html
+            if grep -q '<title>$ANSEM Wallet Checker — Verify Solana Distributions</title>' app.html \
+              && grep -q 'Check whether a Solana wallet received a real $ANSEM distribution' app.html \
+              && ! grep -qiE 'demonstration data|receipt prototype' app.html; then
+              echo 'Live metadata verified.'
+              exit 0
+            fi
+            echo "Waiting for live metadata, attempt $attempt/20"
+            sleep 15
+          done
+          echo 'Live metadata verification failed.'
+          grep -Ei '<title>|name="description"|demonstration data|receipt prototype' app.html || true
+          exit 1
