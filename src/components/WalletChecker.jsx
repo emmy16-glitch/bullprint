@@ -3,7 +3,12 @@ import { findTrackedDistribution } from '../services/solanaRpc'
 import { Icon } from './Icons'
 
 const BASE58 = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz'
-const progress = ['Validating wallet address…', 'Searching indexed distribution records…', 'Checking verified transfer evidence…', 'Preparing the wallet result…']
+const progress = [
+  'Validating wallet address…',
+  'Searching indexed distribution records…',
+  'Checking recent live Solana transfers…',
+  'Preparing the wallet result…',
+]
 
 function decodeBase58(value) {
   let bytes = [0]
@@ -16,16 +21,26 @@ function decodeBase58(value) {
       bytes[i] = carry & 0xff
       carry >>= 8
     }
-    while (carry) { bytes.push(carry & 0xff); carry >>= 8 }
+    while (carry) {
+      bytes.push(carry & 0xff)
+      carry >>= 8
+    }
   }
-  for (const char of value) { if (char === '1') bytes.push(0); else break }
+  for (const char of value) {
+    if (char === '1') bytes.push(0)
+    else break
+  }
   return Uint8Array.from(bytes.reverse())
 }
 
 function validateSolanaAddress(address) {
   if (!address) return 'Enter a public Solana wallet address to continue.'
-  if (![...address].every((char) => BASE58.includes(char))) return 'Use a valid Base58 Solana address. Characters like 0, O, I and l are not valid.'
-  if (decodeBase58(address)?.length !== 32) return 'Solana wallet addresses must decode to exactly 32 bytes.'
+  if (![...address].every((char) => BASE58.includes(char))) {
+    return 'Use a valid Base58 Solana address. Characters like 0, O, I and l are not valid.'
+  }
+  if (decodeBase58(address)?.length !== 32) {
+    return 'Solana wallet addresses must decode to exactly 32 bytes.'
+  }
   return ''
 }
 
@@ -37,7 +52,10 @@ export default function WalletChecker({ onResult }) {
 
   useEffect(() => {
     if (!loading) return undefined
-    const id = window.setInterval(() => setProgressIndex((i) => (i + 1) % progress.length), 1700)
+    const id = window.setInterval(
+      () => setProgressIndex((index) => (index + 1) % progress.length),
+      1700,
+    )
     return () => window.clearInterval(id)
   }, [loading])
 
@@ -47,18 +65,33 @@ export default function WalletChecker({ onResult }) {
     const validation = validateSolanaAddress(trimmed)
     setError(validation)
     if (validation || loading) return
-    setLoading(true); setProgressIndex(0); onResult({ status: 'loading', wallet: trimmed })
+
+    setLoading(true)
+    setProgressIndex(0)
+    onResult({ status: 'loading', wallet: trimmed })
+
     const lookup = await findTrackedDistribution(trimmed)
-    if (lookup.error) onResult({ status: 'error', wallet: trimmed, message: lookup.message })
-    else if (lookup.found) onResult({ status: 'found', wallet: trimmed, data: lookup })
-    else onResult({ status: 'not-found', wallet: trimmed, message: lookup.reason })
+
+    if (lookup.error) {
+      onResult({ status: 'error', wallet: trimmed, message: lookup.message })
+    } else if (lookup.found) {
+      onResult({ status: 'found', wallet: trimmed, data: lookup })
+    } else if (lookup.pending) {
+      onResult({ status: 'indexing', wallet: trimmed, message: lookup.message })
+    } else {
+      onResult({ status: 'not-found', wallet: trimmed, message: lookup.reason })
+    }
+
     setLoading(false)
   }
 
   async function paste() {
     if (loading) return
     const text = await navigator.clipboard?.readText?.()
-    if (text) { setWallet(text.trim()); setError('') }
+    if (text) {
+      setWallet(text.trim())
+      setError('')
+    }
   }
 
   return (
@@ -67,13 +100,43 @@ export default function WalletChecker({ onResult }) {
       <label htmlFor="walletAddress">Public Solana address</label>
       <div className={`wallet-input ${error ? 'has-error' : ''}`}>
         <Icon name="wallet" />
-        <input id="walletAddress" value={wallet} onChange={(e) => { setWallet(e.target.value); setError('') }} placeholder="Paste wallet address here" disabled={loading} autoComplete="off" aria-describedby="wallet-error wallet-progress" />
-        {wallet && <button type="button" className="inline-btn" onClick={() => { setWallet(''); setError('') }} disabled={loading}>Clear</button>}
-        <button type="button" className="inline-btn" onClick={paste} disabled={loading}><Icon name="copy" />Paste</button>
+        <input
+          id="walletAddress"
+          value={wallet}
+          onChange={(event) => {
+            setWallet(event.target.value)
+            setError('')
+          }}
+          placeholder="Paste wallet address here"
+          disabled={loading}
+          autoComplete="off"
+          aria-describedby="wallet-error wallet-progress"
+        />
+        {wallet ? (
+          <button
+            type="button"
+            className="inline-btn"
+            onClick={() => {
+              setWallet('')
+              setError('')
+            }}
+            disabled={loading}
+          >
+            Clear
+          </button>
+        ) : null}
+        <button type="button" className="inline-btn" onClick={paste} disabled={loading}>
+          <Icon name="copy" />Paste
+        </button>
       </div>
       <p id="wallet-error" className="input-error" role="alert">{error}</p>
-      <button className="primary-btn submit-btn" disabled={loading} type="submit">{loading && <span className="spinner" />}Check Wallet</button>
-      <p id="wallet-progress" className="secure-line" aria-live="polite">{loading ? progress[progressIndex] : 'Secure · Read-only · Solana Mainnet'}</p>
+      <button className="primary-btn submit-btn" disabled={loading} type="submit">
+        {loading ? <span className="spinner" /> : null}
+        Check Wallet
+      </button>
+      <p id="wallet-progress" className="secure-line" aria-live="polite">
+        {loading ? progress[progressIndex] : 'Secure · Read-only · Solana Mainnet'}
+      </p>
     </form>
   )
 }
