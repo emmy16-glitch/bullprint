@@ -11,6 +11,24 @@
   "triggers": {
     "crons": ["* * * * *"]
   },
+  "ratelimits": [
+    {
+      "name": "PUBLIC_API_RATE_LIMITER",
+      "namespace_id": "910701",
+      "simple": {
+        "limit": 120,
+        "period": 60
+      }
+    },
+    {
+      "name": "RPC_RATE_LIMITER",
+      "namespace_id": "910702",
+      "simple": {
+        "limit": 30,
+        "period": 60
+      }
+    }
+  ],
   "d1_databases": [
     {
       "binding": "DB",

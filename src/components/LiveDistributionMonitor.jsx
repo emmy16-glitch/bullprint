@@ -1,19 +1,29 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import './LiveDistributionMonitor.css'
 
 const DEFAULT_ENDPOINT = '/api/distributions'
-
 const REFRESH_MS = 30_000
+const PAGE_SIZE = 8
 
 function shorten(value) {
   if (!value || value.length < 14) return value || '—'
   return `${value.slice(0, 6)}…${value.slice(-6)}`
 }
 
-function formatAmount(value) {
+function formatExactAmount(value) {
   const [whole = '0', fraction = ''] = String(value ?? '0').split('.')
   const grouped = whole.replace(/\B(?=(\d{3})+(?!\d))/g, ',')
   return fraction ? `${grouped}.${fraction}` : grouped
+}
+
+function formatCompactAmount(value) {
+  const numeric = Number(value || 0)
+  if (!Number.isFinite(numeric)) return formatExactAmount(value)
+
+  return new Intl.NumberFormat(undefined, {
+    notation: Math.abs(numeric) >= 1_000_000 ? 'compact' : 'standard',
+    maximumFractionDigits: 2,
+  }).format(numeric)
 }
 
 function formatTime(timestamp) {
@@ -23,6 +33,25 @@ function formatTime(timestamp) {
     dateStyle: 'medium',
     timeStyle: 'short',
   }).format(new Date(timestamp * 1000))
+}
+
+function TokenAmount({ value, suffix = '$ANSEM', className = '' }) {
+  const [exact, setExact] = useState(false)
+  const exactText = `${formatExactAmount(value)} ${suffix}`
+  const compactText = `${formatCompactAmount(value)} ${suffix}`
+
+  return (
+    <button
+      type="button"
+      className={`token-amount ${className}`.trim()}
+      onClick={() => setExact((current) => !current)}
+      aria-label={`${exact ? 'Hide' : 'Show'} exact amount. ${exactText}`}
+      title={exact ? 'Tap to show compact amount' : `Exact amount: ${exactText}`}
+    >
+      <strong>{exact ? exactText : compactText}</strong>
+      <small>{exact ? 'Tap to shorten' : 'Tap for exact amount'}</small>
+    </button>
+  )
 }
 
 async function requestMonitorData(endpoint, signal) {
@@ -42,9 +71,7 @@ async function requestMonitorData(endpoint, signal) {
 }
 
 export default function LiveDistributionMonitor() {
-  const endpoint =
-    import.meta.env.VITE_DISTRIBUTION_MONITOR_URL || DEFAULT_ENDPOINT
-
+  const endpoint = import.meta.env.VITE_DISTRIBUTION_MONITOR_URL || DEFAULT_ENDPOINT
   const hasDataRef = useRef(false)
   const [data, setData] = useState(null)
   const [loading, setLoading] = useState(true)
@@ -52,6 +79,8 @@ export default function LiveDistributionMonitor() {
   const [error, setError] = useState('')
   const [refreshWarning, setRefreshWarning] = useState('')
   const [updatedAt, setUpdatedAt] = useState(null)
+  const [query, setQuery] = useState('')
+  const [page, setPage] = useState(1)
 
   useEffect(() => {
     let active = true
@@ -72,9 +101,7 @@ export default function LiveDistributionMonitor() {
       console.error('Live distribution monitor request failed:', requestError)
 
       if (hasDataRef.current) {
-        setRefreshWarning(
-          'The latest refresh failed. Showing the most recent verified data.',
-        )
+        setRefreshWarning('The latest refresh failed. Showing the most recent verified data.')
       } else {
         setError('Live distribution data could not be loaded right now.')
         setLoading(false)
@@ -142,7 +169,29 @@ export default function LiveDistributionMonitor() {
   const backfillComplete = Boolean(data?.status?.backfillComplete)
   const totals = data?.totals
   const latest = data?.latestDistribution
-  const transfers = data?.recentTransfers?.slice(0, 8) || []
+  const allTransfers = data?.recentTransfers || []
+
+  const filteredTransfers = useMemo(() => {
+    const normalized = query.trim().toLowerCase()
+    if (!normalized) return allTransfers
+
+    return allTransfers.filter((transfer) =>
+      transfer.recipient?.toLowerCase().includes(normalized)
+      || transfer.signature?.toLowerCase().includes(normalized),
+    )
+  }, [allTransfers, query])
+
+  const totalPages = Math.max(1, Math.ceil(filteredTransfers.length / PAGE_SIZE))
+  const activePage = Math.min(page, totalPages)
+  const transfers = filteredTransfers.slice(
+    (activePage - 1) * PAGE_SIZE,
+    activePage * PAGE_SIZE,
+  )
+
+  function updateQuery(value) {
+    setQuery(value)
+    setPage(1)
+  }
 
   return (
     <section className="monitor" id="live-distributions" aria-labelledby="monitor-title">
@@ -181,42 +230,52 @@ export default function LiveDistributionMonitor() {
           <div className={`monitor-notice${backfillComplete ? ' is-complete' : ''}`}>
             <p>
               <strong>
-                {backfillComplete
-                  ? 'Historical scan complete.'
-                  : 'Historical scan in progress.'}
+                {backfillComplete ? 'Historical scan complete.' : 'Historical scan in progress.'}
               </strong>{' '}
               {backfillComplete
-                ? 'The monitored history has been indexed.'
-                : 'The total shown is the amount detected so far and may continue to increase.'}
+                ? 'The monitored history has been indexed and new activity continues to be added.'
+                : 'Older transactions are scanned every minute while new distributions continue to be monitored.'}
             </p>
+            {!backfillComplete ? (
+              <div className="scan-progress" role="progressbar" aria-label="Historical scan in progress">
+                <span />
+              </div>
+            ) : null}
+            <small>
+              {backfillComplete
+                ? `${formatExactAmount(totals?.verifiedTransfers || 0)} verified transfers indexed.`
+                : `${formatExactAmount(totals?.verifiedTransfers || 0)} verified transfers detected so far. This is an activity indicator, not a percentage estimate.`}
+            </small>
           </div>
 
           {refreshWarning ? (
-            <div className="monitor-refresh-warning" role="status">
-              {refreshWarning}
-            </div>
+            <div className="monitor-refresh-warning" role="status">{refreshWarning}</div>
           ) : null}
 
           <div className="monitor-stats">
             <article>
               <span>{backfillComplete ? 'Total distributed' : 'Detected so far'}</span>
-              <strong>{formatAmount(totals?.amount)} $ANSEM</strong>
+              <TokenAmount value={totals?.amount} />
               <small>{backfillComplete ? 'Indexed monitor history' : 'Still scanning older transfers'}</small>
             </article>
             <article>
               <span>Unique recipients</span>
-              <strong>{formatAmount(totals?.uniqueRecipients || 0)}</strong>
+              <strong>{formatExactAmount(totals?.uniqueRecipients || 0)}</strong>
               <small>Detected public wallet addresses</small>
             </article>
             <article>
               <span>Verified transfers</span>
-              <strong>{formatAmount(totals?.verifiedTransfers || 0)}</strong>
+              <strong>{formatExactAmount(totals?.verifiedTransfers || 0)}</strong>
               <small>Matched mint and distribution wallet</small>
             </article>
             <article>
               <span>Last detected</span>
               <strong>{totals?.lastDetectedAt ? formatTime(totals.lastDetectedAt) : '—'}</strong>
-              <small>{updatedAt ? `Page updated ${updatedAt.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}` : 'Waiting for data'}</small>
+              <small>
+                {updatedAt
+                  ? `Page updated ${updatedAt.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`
+                  : 'Waiting for data'}
+              </small>
             </article>
           </div>
 
@@ -231,9 +290,22 @@ export default function LiveDistributionMonitor() {
                 </p>
               </div>
               <div className="latest-amount">
-                <strong>{latest ? `${formatAmount(latest.amount)} $ANSEM` : '—'}</strong>
+                {latest ? <TokenAmount value={latest.amount} /> : <strong>—</strong>}
                 <small>{latest?.lastDetectedAt ? formatTime(latest.lastDetectedAt) : 'No timestamp available'}</small>
               </div>
+            </div>
+
+            <div className="transfer-tools">
+              <label htmlFor="transfer-search">Search recent transfers</label>
+              <input
+                id="transfer-search"
+                type="search"
+                value={query}
+                onChange={(event) => updateQuery(event.target.value)}
+                placeholder="Recipient or transaction signature"
+                autoComplete="off"
+              />
+              <span>{filteredTransfers.length} result{filteredTransfers.length === 1 ? '' : 's'}</span>
             </div>
 
             <div className="evidence-table monitor-table">
@@ -246,20 +318,57 @@ export default function LiveDistributionMonitor() {
 
               {transfers.length ? transfers.map((transfer) => (
                 <div className="table-row" key={`${transfer.signature}-${transfer.recipient}`}>
-                  <code title={transfer.recipient}>{shorten(transfer.recipient)}</code>
-                  <strong>{formatAmount(transfer.amount)} $ANSEM</strong>
+                  <a
+                    className="chain-link recipient-link"
+                    href={`https://solscan.io/account/${transfer.recipient}`}
+                    target="_blank"
+                    rel="noreferrer"
+                    title={transfer.recipient}
+                  >
+                    {shorten(transfer.recipient)}
+                  </a>
+                  <strong>{formatExactAmount(transfer.amount)} $ANSEM</strong>
                   <span>{formatTime(transfer.blockTime)}</span>
-                  <a href={transfer.explorerUrl} target="_blank" rel="noreferrer">
-                    View transaction
+                  <a
+                    className="chain-link transaction-link"
+                    href={`https://solscan.io/tx/${transfer.signature}`}
+                    target="_blank"
+                    rel="noreferrer"
+                  >
+                    View on Solscan ↗
                   </a>
                 </div>
               )) : (
-                <div className="empty-row">No verified transfers have been indexed yet.</div>
+                <div className="empty-row">
+                  {query
+                    ? 'No recent transfers match that recipient or transaction signature.'
+                    : 'No verified transfers have been indexed yet.'}
+                </div>
               )}
             </div>
 
+            {filteredTransfers.length > PAGE_SIZE ? (
+              <nav className="transfer-pagination" aria-label="Recent transfer pages">
+                <button
+                  type="button"
+                  onClick={() => setPage((current) => Math.max(1, current - 1))}
+                  disabled={activePage === 1}
+                >
+                  Previous
+                </button>
+                <span>Page {activePage} of {totalPages}</span>
+                <button
+                  type="button"
+                  onClick={() => setPage((current) => Math.min(totalPages, current + 1))}
+                  disabled={activePage === totalPages}
+                >
+                  Next
+                </button>
+              </nav>
+            ) : null}
+
             <p className="monitor-meta">
-              Read-only public Solana data. This tool tracks one configured mint and distribution wallet and does not imply official endorsement.
+              Read-only public Solana data. Recipient and transaction links open independent Solscan records for verification.
             </p>
           </div>
         </>

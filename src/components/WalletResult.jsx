@@ -8,19 +8,42 @@ const copy = (value) => navigator.clipboard?.writeText(value)
 function Evidence({ data }) {
   const multipleTransfers = Number(data.transferCount || 0) > 1
   const rows = [
-    ['Recipient wallet', data.recipient],
-    ['Distribution wallet', data.sourceWallet],
-    ['Tracked mint', data.tokenMint],
-    ['Verified transfers', String(data.transferCount || 1)],
-    [multipleTransfers ? 'Latest transaction signature' : 'Transaction signature', data.transactionSignature],
-    [multipleTransfers ? 'Latest transfer time' : 'Block time', formatDate(data.blockTime)],
-    ['Verification source', data.verification || 'Confirmed transfer'],
-    ['Status', 'Confirmed'],
+    {
+      label: 'Recipient wallet',
+      value: data.recipient,
+      href: `https://solscan.io/account/${data.recipient}`,
+      linkLabel: 'View wallet',
+    },
+    {
+      label: 'Distribution wallet',
+      value: data.sourceWallet,
+      href: `https://solscan.io/account/${data.sourceWallet}`,
+      linkLabel: 'View source',
+    },
+    {
+      label: 'Tracked mint',
+      value: data.tokenMint,
+      href: `https://solscan.io/token/${data.tokenMint}`,
+      linkLabel: 'View token',
+    },
+    { label: 'Verified transfers', value: String(data.transferCount || 1) },
+    {
+      label: multipleTransfers ? 'Latest transaction signature' : 'Transaction signature',
+      value: data.transactionSignature,
+      href: `https://solscan.io/tx/${data.transactionSignature}`,
+      linkLabel: 'View transaction',
+    },
+    {
+      label: multipleTransfers ? 'Latest transfer time' : 'Block time',
+      value: formatDate(data.blockTime),
+    },
+    { label: 'Verification source', value: data.verification || 'Confirmed transfer' },
+    { label: 'Status', value: 'Confirmed' },
   ]
 
   return (
     <div className="evidence-table">
-      {rows.map(([label, value]) => (
+      {rows.map(({ label, value, href, linkLabel }) => (
         <div className="table-row" key={label}>
           <span>{label}</span>
           <code>{value}</code>
@@ -29,9 +52,9 @@ function Evidence({ data }) {
               <Icon name="copy" />
             </button>
           ) : null}
-          {label.includes('transaction') ? (
-            <a href={data.explorerUrl} target="_blank" rel="noreferrer">
-              Open in Explorer
+          {href ? (
+            <a className="evidence-link" href={href} target="_blank" rel="noreferrer">
+              {linkLabel} ↗
             </a>
           ) : null}
         </div>
@@ -78,8 +101,8 @@ export default function WalletResult({ result, onReset }) {
         </button>
         <div>
           <button onClick={() => copy(wallet)}><Icon name="copy" />Copy Address</button>
-          <a href={`https://explorer.solana.com/address/${wallet}`} target="_blank" rel="noreferrer">
-            <Icon name="external" />View on Solana Explorer
+          <a href={`https://solscan.io/account/${wallet}`} target="_blank" rel="noreferrer">
+            <Icon name="external" />View wallet on Solscan
           </a>
         </div>
       </div>
@@ -160,8 +183,8 @@ export default function WalletResult({ result, onReset }) {
             <button className="primary-btn" onClick={onReset}>
               {error || indexing ? 'Check again' : 'Check another wallet'}
             </button>
-            <a href={`https://explorer.solana.com/address/${wallet}`} target="_blank" rel="noreferrer">
-              Open wallet in Solana Explorer
+            <a className="evidence-link" href={`https://solscan.io/account/${wallet}`} target="_blank" rel="noreferrer">
+              Open wallet on Solscan ↗
             </a>
           </div>
         </div>

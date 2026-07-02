@@ -16,10 +16,19 @@ const RPC_HEADERS = {
   'Access-Control-Max-Age': '86400',
 };
 
-function json(payload, status = 200) {
+const API_HEADERS = {
+  'Content-Type': 'application/json; charset=UTF-8',
+  'Cache-Control': 'no-store',
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Methods': 'GET, OPTIONS',
+  'Access-Control-Allow-Headers': 'Content-Type',
+  'Access-Control-Max-Age': '86400',
+};
+
+function json(payload, status = 200, headers = RPC_HEADERS) {
   return new Response(JSON.stringify(payload), {
     status,
-    headers: RPC_HEADERS,
+    headers,
   });
 }
 
@@ -31,6 +40,33 @@ function rpcError(id, code, message, status) {
       error: { code, message },
     },
     status,
+  );
+}
+
+function clientKey(request, route) {
+  const client = request.headers.get('cf-connecting-ip') || 'anonymous';
+  return `${route}:${client}`;
+}
+
+async function enforceRateLimit(request, binding, route, headers) {
+  if (!binding?.limit) return null;
+
+  const { success } = await binding.limit({
+    key: clientKey(request, route),
+  });
+
+  if (success) return null;
+
+  return json(
+    {
+      ok: false,
+      error: 'Too many requests. Please wait one minute and try again.',
+    },
+    429,
+    {
+      ...headers,
+      'Retry-After': '60',
+    },
   );
 }
 
@@ -48,6 +84,14 @@ async function handleRpcProxy(request, env) {
   if (request.method !== 'POST') {
     return rpcError(null, -32600, 'POST requests only.', 405);
   }
+
+  const limited = await enforceRateLimit(
+    request,
+    env.RPC_RATE_LIMITER,
+    'solana-rpc',
+    RPC_HEADERS,
+  );
+  if (limited) return limited;
 
   const contentLength = Number(request.headers.get('content-length') || 0);
   if (contentLength > 25_000) {
@@ -120,6 +164,17 @@ export default {
 
     if (url.pathname === '/api/solana-rpc') {
       return handleRpcProxy(request, env);
+    }
+
+    if (request.method !== 'OPTIONS'
+      && (url.pathname === '/api/wallet' || url.pathname === '/api/distributions')) {
+      const limited = await enforceRateLimit(
+        request,
+        env.PUBLIC_API_RATE_LIMITER,
+        url.pathname,
+        API_HEADERS,
+      );
+      if (limited) return limited;
     }
 
     return monitor.fetch(request, env, context);
