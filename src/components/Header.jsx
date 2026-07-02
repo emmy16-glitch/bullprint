@@ -11,8 +11,13 @@ const nav = [
 ]
 
 function initialTheme() {
-  const saved = window.localStorage.getItem('ansem-theme')
-  if (saved === 'dark' || saved === 'light') return saved
+  try {
+    const saved = window.localStorage.getItem('ansem-theme')
+    if (saved === 'dark' || saved === 'light') return saved
+  } catch {
+    // Storage can be unavailable in private browsing or hardened browsers.
+  }
+
   return window.matchMedia?.('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'
 }
 
@@ -22,7 +27,15 @@ export default function Header() {
 
   useEffect(() => {
     document.documentElement.dataset.theme = theme
-    window.localStorage.setItem('ansem-theme', theme)
+
+    const themeColor = document.querySelector('meta[name="theme-color"]')
+    themeColor?.setAttribute('content', theme === 'dark' ? '#07101B' : '#F5F7FA')
+
+    try {
+      window.localStorage.setItem('ansem-theme', theme)
+    } catch {
+      // The selected theme still applies for the current page session.
+    }
   }, [theme])
 
   const nextTheme = theme === 'dark' ? 'light' : 'dark'
