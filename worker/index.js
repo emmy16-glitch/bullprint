@@ -1,5 +1,4 @@
-const SOLANA_RPC_PROXY_URL =
-  'https://ansem-distribution-monitor.emmanuelokunlola16.workers.dev/api/solana-rpc'
+const MONITOR_ORIGIN = 'https://ansem-distribution-monitor.emmanuelokunlola16.workers.dev'
 
 const JSON_HEADERS = {
   'Content-Type': 'application/json; charset=UTF-8',
@@ -13,42 +12,27 @@ function json(payload, status = 200) {
   })
 }
 
-async function proxySolanaRpc(request) {
-  if (request.method === 'OPTIONS') {
-    return new Response(null, {
-      status: 204,
-      headers: {
-        ...JSON_HEADERS,
-        'Access-Control-Allow-Origin': '*',
-        'Access-Control-Allow-Methods': 'POST, OPTIONS',
-        'Access-Control-Allow-Headers': 'Content-Type',
-        'Access-Control-Max-Age': '86400',
-      },
-    })
+async function proxyMonitorRequest(request, pathname) {
+  const sourceUrl = new URL(request.url)
+  const upstreamUrl = new URL(pathname, MONITOR_ORIGIN)
+  upstreamUrl.search = sourceUrl.search
+
+  const headers = new Headers()
+  headers.set('Accept', 'application/json')
+  if (request.headers.get('content-type')) {
+    headers.set('Content-Type', request.headers.get('content-type'))
   }
 
-  if (request.method !== 'POST') {
-    return json(
-      {
-        jsonrpc: '2.0',
-        id: null,
-        error: { code: -32600, message: 'POST requests only.' },
-      },
-      405,
-    )
+  const init = {
+    method: request.method,
+    headers,
   }
 
-  const requestBody = await request.text()
+  if (!['GET', 'HEAD'].includes(request.method)) {
+    init.body = await request.text()
+  }
 
-  const upstreamResponse = await fetch(SOLANA_RPC_PROXY_URL, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Accept: 'application/json',
-    },
-    body: requestBody,
-  })
-
+  const upstreamResponse = await fetch(upstreamUrl, init)
   const responseHeaders = new Headers(upstreamResponse.headers)
   responseHeaders.set('Cache-Control', 'no-store')
   responseHeaders.set('Content-Type', 'application/json; charset=UTF-8')
@@ -63,29 +47,42 @@ export default {
   async fetch(request, env) {
     const url = new URL(request.url)
 
-    if (url.pathname === '/api/solana-rpc') {
-      try {
-        return await proxySolanaRpc(request)
-      } catch (error) {
-        console.error('Solana RPC proxy failed', error)
-        return json(
-          {
-            jsonrpc: '2.0',
-            id: null,
-            error: {
-              code: -32000,
-              message: 'The Solana lookup service is temporarily unavailable.',
-            },
-          },
-          502,
-        )
+    try {
+      if (url.pathname === '/api/solana-rpc') {
+        if (!['POST', 'OPTIONS'].includes(request.method)) {
+          return json({ ok: false, error: 'POST requests only.' }, 405)
+        }
+        return proxyMonitorRequest(request, '/api/solana-rpc')
       }
-    }
 
-    if (url.pathname.startsWith('/api/')) {
-      return json({ ok: false, error: 'API route not found.' }, 404)
-    }
+      if (url.pathname === '/api/wallet') {
+        if (request.method !== 'GET') {
+          return json({ ok: false, error: 'GET requests only.' }, 405)
+        }
+        return proxyMonitorRequest(request, '/api/wallet')
+      }
 
-    return env.ASSETS.fetch(request)
+      if (url.pathname === '/api/distributions') {
+        if (request.method !== 'GET') {
+          return json({ ok: false, error: 'GET requests only.' }, 405)
+        }
+        return proxyMonitorRequest(request, '/api/distributions')
+      }
+
+      if (url.pathname.startsWith('/api/')) {
+        return json({ ok: false, error: 'API route not found.' }, 404)
+      }
+
+      return env.ASSETS.fetch(request)
+    } catch (error) {
+      console.error('BullPrint API proxy failed', error)
+      return json(
+        {
+          ok: false,
+          error: 'The BullPrint data service is temporarily unavailable.',
+        },
+        502,
+      )
+    }
   },
 }

@@ -1,0 +1,48 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install frontend dependencies
+        run: npm ci
+
+      - name: Lint frontend and Workers
+        run: npm run lint
+
+      - name: Build production application
+        run: npm run build
+
+      - name: Validate monitor source syntax
+        run: |
+          node --check cloudflare-monitor/src/index.js
+          node --check cloudflare-monitor/src/entry.js
+          node --check worker/index.js
+
+      - name: Install monitor dependencies
+        working-directory: cloudflare-monitor
+        run: npm ci
+
+      - name: Validate monitor package
+        working-directory: cloudflare-monitor
+        run: npm run build

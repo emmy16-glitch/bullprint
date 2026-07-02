@@ -1,8 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import './LiveDistributionMonitor.css'
 
-const DEFAULT_ENDPOINT =
-  'https://ansem-distribution-monitor.emmanuelokunlola16.workers.dev/api/distributions'
+const DEFAULT_ENDPOINT = '/api/distributions'
 
 const REFRESH_MS = 30_000
 

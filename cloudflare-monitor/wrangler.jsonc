@@ -2,7 +2,7 @@
   "$schema": "./node_modules/wrangler/config-schema.json",
   "name": "ansem-distribution-monitor",
   "main": "src/entry.js",
-  "compatibility_date": "2026-07-01",
+  "compatibility_date": "2026-07-02",
   "workers_dev": true,
   "observability": {
     "enabled": true,
@@ -15,7 +15,8 @@
     {
       "binding": "DB",
       "database_name": "ansem-distribution-db",
-      "database_id": "5e7879ac-727c-431f-8e79-2bb572e288ca"
+      "database_id": "5e7879ac-727c-431f-8e79-2bb572e288ca",
+      "migrations_dir": "migrations"
     }
   ],
   "secrets_store_secrets": [
