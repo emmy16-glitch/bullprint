@@ -1,0 +1,44 @@
+name: Deploy monitor now
+
+on:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Deploy monitor Worker
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          workingDirectory: cloudflare-monitor
+          command: deploy
+
+      - name: Verify reconciliation endpoint
+        shell: bash
+        run: |
+          set -euo pipefail
+          monitor_url='https://ansem-distribution-monitor.ansemverify.workers.dev'
+
+          for attempt in $(seq 1 20); do
+            status=$(curl --silent --show-error --max-time 30 -o integrity.json -w '%{http_code}' "$monitor_url/api/integrity" || true)
+            if [ "$status" = '200' ] && jq -e '.ok == true and .reconciliation.fresh == true and (.reconciliation.transferCount > 0) and (.totals.verifiedTransfers == .reconciliation.transferCount)' integrity.json >/dev/null 2>&1; then
+              jq '.' integrity.json
+              exit 0
+            fi
+            echo "Waiting for reconciled monitor, attempt $attempt/20, HTTP $status"
+            sleep 20
+          done
+
+          cat integrity.json 2>/dev/null || true
+          exit 1
