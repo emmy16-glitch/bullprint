@@ -1,5 +1,7 @@
 const MONITOR_ORIGIN = 'https://ansem-distribution-monitor.ansemverify.workers.dev'
+const TOKEN_LOGO_SOURCE = 'https://i2c.seadn.io/solana/9cRCn9rGT8V2imeM2BaKs13yhMEais3ruM3rPvTGpump/e3a24600cfff57519b009053cb0094/78e3a24600cfff57519b009053cb0094.avif?h=256&w=256'
 const DISTRIBUTION_CACHE_SECONDS = 15
+const TOKEN_LOGO_CACHE_SECONDS = 24 * 60 * 60
 const PAGE_TITLE = '$ANSEM Wallet Checker — Verify Solana Distributions'
 const PAGE_DESCRIPTION =
   'Check whether a Solana wallet received a real $ANSEM distribution. Read-only, no wallet connection required.'
@@ -97,6 +99,50 @@ async function proxyMonitorRequest(request, pathname, options = {}) {
   return response
 }
 
+async function proxyTokenLogo(request, context) {
+  const cache = typeof caches !== 'undefined' ? caches.default : null
+  const cacheKey = new Request(new URL('/api/token-logo', request.url).toString(), {
+    method: 'GET',
+  })
+
+  if (cache) {
+    const cached = await cache.match(cacheKey)
+    if (cached) return cached
+  }
+
+  const upstreamResponse = await fetch(TOKEN_LOGO_SOURCE, {
+    headers: {
+      Accept: 'image/avif,image/webp,image/png,image/*',
+    },
+  })
+
+  if (!upstreamResponse.ok) {
+    return json({ ok: false, error: 'The token logo is temporarily unavailable.' }, 502)
+  }
+
+  const headers = new Headers(upstreamResponse.headers)
+  headers.set('Content-Type', upstreamResponse.headers.get('content-type') || 'image/avif')
+  headers.set(
+    'Cache-Control',
+    `public, max-age=${TOKEN_LOGO_CACHE_SECONDS}, s-maxage=${TOKEN_LOGO_CACHE_SECONDS}`,
+  )
+  headers.set('Access-Control-Allow-Origin', '*')
+  headers.set('Cross-Origin-Resource-Policy', 'cross-origin')
+
+  const response = new Response(upstreamResponse.body, {
+    status: upstreamResponse.status,
+    headers,
+  })
+
+  if (cache) {
+    const cacheWrite = cache.put(cacheKey, response.clone())
+    if (context?.waitUntil) context.waitUntil(cacheWrite)
+    else await cacheWrite
+  }
+
+  return response
+}
+
 function rewriteDocumentMetadata(response) {
   const contentType = response.headers.get('content-type') || ''
   if (!contentType.toLowerCase().includes('text/html')) return response
@@ -157,6 +203,13 @@ export default {
     const url = new URL(request.url)
 
     try {
+      if (url.pathname === '/api/token-logo') {
+        if (!['GET', 'HEAD'].includes(request.method)) {
+          return json({ ok: false, error: 'GET requests only.' }, 405)
+        }
+        return proxyTokenLogo(request, context)
+      }
+
       if (url.pathname === '/api/solana-rpc') {
         if (!['POST', 'OPTIONS'].includes(request.method)) {
           return json({ ok: false, error: 'POST requests only.' }, 405)
