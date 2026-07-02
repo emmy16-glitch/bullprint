@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import TokenLogo, { TOKEN_LOGO_URL } from './TokenLogo'
 import { Icon } from './Icons'
 import { formatDate, short } from './resultUtils'
+import './ReceiptActions.css'
 
 const APP_URL = 'https://ansem-wallet-checker.ansemverify.workers.dev'
 
