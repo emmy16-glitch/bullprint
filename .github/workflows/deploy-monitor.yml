@@ -41,7 +41,7 @@ jobs:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           workingDirectory: cloudflare-monitor
-          command: deploy src/reconciled-entry.js
+          command: deploy
 
       - name: Verify live monitor and reconciliation
         shell: bash
