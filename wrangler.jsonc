@@ -3,6 +3,7 @@
   "name": "ansem-wallet-checker",
   "main": "./worker/index.js",
   "compatibility_date": "2026-07-02",
+  "compatibility_flags": ["global_fetch_strictly_public"],
   "observability": { "enabled": true },
   "assets": {
     "binding": "ASSETS",
