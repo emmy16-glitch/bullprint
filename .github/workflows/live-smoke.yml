@@ -34,6 +34,8 @@ jobs:
           set -euo pipefail
           curl --fail --silent --show-error --max-time 30 "$MONITOR_URL/api/distributions" -o monitor-distributions.json
           jq -e '.ok == true and .status and .totals and .tracked' monitor-distributions.json >/dev/null
+          echo 'LIVE_DISTRIBUTION_SNAPSHOT'
+          jq '{status, totals, latestDistribution, tracked}' monitor-distributions.json
 
       - name: Verify monitor wallet API
         shell: bash
@@ -41,6 +43,8 @@ jobs:
           set -euo pipefail
           curl --fail --silent --show-error --max-time 30 "$MONITOR_URL/api/wallet?address=$TEST_WALLET" -o monitor-wallet.json
           jq -e '.ok == true and (.found == true or .found == false)' monitor-wallet.json >/dev/null
+          echo 'LIVE_TEST_WALLET_SNAPSHOT'
+          jq '{found, indexing, amountReceived, transferCount, tokenMint, sourceWallet, transactionSignature, blockTime}' monitor-wallet.json
 
       - name: Verify frontend application and metadata
         shell: bash
