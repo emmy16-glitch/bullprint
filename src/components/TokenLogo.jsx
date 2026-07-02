@@ -1,6 +1,6 @@
 import { useState } from 'react'
 
-const TOKEN_LOGO_URL = 'https://i2c.seadn.io/solana/9cRCn9rGT8V2imeM2BaKs13yhMEais3ruM3rPvTGpump/e3a24600cfff57519b009053cb0094/78e3a24600cfff57519b009053cb0094.avif?h=128&w=128'
+export const TOKEN_LOGO_URL = '/api/token-logo'
 
 export default function TokenLogo({ compact = false }) {
   const [imageFailed, setImageFailed] = useState(false)
@@ -14,7 +14,6 @@ export default function TokenLogo({ compact = false }) {
           width="128"
           height="128"
           decoding="async"
-          referrerPolicy="no-referrer"
           onError={() => setImageFailed(true)}
           style={{
             width: '100%',
