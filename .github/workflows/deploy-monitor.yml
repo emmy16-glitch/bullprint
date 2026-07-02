@@ -50,23 +50,27 @@ jobs:
           monitor_url='https://ansem-distribution-monitor.ansemverify.workers.dev'
           test_wallet='GSzKTurJy8rn6s4Z67e5RdG6j4vPPpvcjzBri2ALSXgX'
 
-          for attempt in $(seq 1 15); do
+          for attempt in $(seq 1 20); do
             if curl --fail --silent --show-error --max-time 30 "$monitor_url/health" -o health.json \
               && jq -e '.ok == true and .database == "connected" and .rpc == "connected"' health.json >/dev/null \
               && curl --fail --silent --show-error --max-time 30 "$monitor_url/api/distributions" -o distributions.json \
               && jq -e '.ok == true and .status.backfillComplete == true and (.totals.verifiedTransfers > 0) and (.totals.amountRaw != "0")' distributions.json >/dev/null \
               && curl --fail --silent --show-error --max-time 30 "$monitor_url/api/wallet?address=$test_wallet" -o wallet.json \
-              && jq -e '.ok == true and .found == true and .amountReceived == "7000"' wallet.json >/dev/null; then
+              && jq -e '.ok == true and .found == true and .amountReceived == "7000"' wallet.json >/dev/null \
+              && curl --fail --silent --show-error --max-time 30 "$monitor_url/api/integrity" -o integrity.json \
+              && jq -e '.ok == true and .reconciliation.fresh == true and (.reconciliation.transferCount > 0) and (.totals.amountRaw != "0") and (.totals.verifiedTransfers == .reconciliation.transferCount)' integrity.json >/dev/null; then
               jq '{status, totals, latestDistribution, tracked}' distributions.json
               jq '{found, amountReceived, transferCount, transactionSignature}' wallet.json
+              jq '.' integrity.json
               exit 0
             fi
 
-            echo "Waiting for monitor deployment, attempt $attempt/15"
+            echo "Waiting for monitor deployment and reconciliation, attempt $attempt/20"
             sleep 20
           done
 
           cat health.json 2>/dev/null || true
           cat distributions.json 2>/dev/null || true
           cat wallet.json 2>/dev/null || true
+          cat integrity.json 2>/dev/null || true
           exit 1
