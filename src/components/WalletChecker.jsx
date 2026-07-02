@@ -3,7 +3,7 @@ import { findTrackedDistribution } from '../services/solanaRpc'
 import { Icon } from './Icons'
 
 const BASE58 = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz'
-const progress = ['Validating wallet address…', 'Finding the tracked token account…', 'Checking recent confirmed transactions…', 'Verifying the distribution source…']
+const progress = ['Validating wallet address…', 'Searching indexed distribution records…', 'Checking verified transfer evidence…', 'Preparing the wallet result…']
 
 function decodeBase58(value) {
   let bytes = [0]
