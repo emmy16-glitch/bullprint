@@ -1,5 +1,8 @@
 const MONITOR_ORIGIN = 'https://ansem-distribution-monitor.emmanuelokunlola16.workers.dev'
 const DISTRIBUTION_CACHE_SECONDS = 15
+const PAGE_TITLE = '$ANSEM Wallet Checker — Verify Solana Distributions'
+const PAGE_DESCRIPTION =
+  'Check whether a Solana wallet received a real $ANSEM distribution. Read-only, no wallet connection required.'
 
 const JSON_HEADERS = {
   'Content-Type': 'application/json; charset=UTF-8',
@@ -94,6 +97,61 @@ async function proxyMonitorRequest(request, pathname, options = {}) {
   return response
 }
 
+function rewriteDocumentMetadata(response) {
+  const contentType = response.headers.get('content-type') || ''
+  if (!contentType.toLowerCase().includes('text/html')) return response
+
+  const headers = new Headers(response.headers)
+  headers.set('Cache-Control', 'no-store, max-age=0')
+  headers.set('Pragma', 'no-cache')
+  headers.set('X-BullPrint-Metadata', 'current')
+
+  const htmlResponse = new Response(response.body, {
+    status: response.status,
+    statusText: response.statusText,
+    headers,
+  })
+
+  return new HTMLRewriter()
+    .on('title', {
+      element(element) {
+        element.setInnerContent(PAGE_TITLE)
+      },
+    })
+    .on('meta[name="description"]', {
+      element(element) {
+        element.setAttribute('content', PAGE_DESCRIPTION)
+      },
+    })
+    .on('meta[property="og:title"]', {
+      element(element) {
+        element.setAttribute('content', '$ANSEM Wallet Checker')
+      },
+    })
+    .on('meta[property="og:description"]', {
+      element(element) {
+        element.setAttribute(
+          'content',
+          'Verify $ANSEM wallet distributions using public Solana data. Read-only and no wallet connection required.',
+        )
+      },
+    })
+    .on('meta[name="twitter:title"]', {
+      element(element) {
+        element.setAttribute('content', '$ANSEM Wallet Checker')
+      },
+    })
+    .on('meta[name="twitter:description"]', {
+      element(element) {
+        element.setAttribute(
+          'content',
+          'Verify $ANSEM wallet distributions using public Solana data. Read-only and no wallet connection required.',
+        )
+      },
+    })
+    .transform(htmlResponse)
+}
+
 export default {
   async fetch(request, env, context) {
     const url = new URL(request.url)
@@ -127,7 +185,8 @@ export default {
         return json({ ok: false, error: 'API route not found.' }, 404)
       }
 
-      return env.ASSETS.fetch(request)
+      const assetResponse = await env.ASSETS.fetch(request)
+      return rewriteDocumentMetadata(assetResponse)
     } catch (error) {
       console.error('BullPrint API proxy failed', error)
       return json(
