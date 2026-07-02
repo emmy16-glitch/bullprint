@@ -47,6 +47,19 @@ jobs:
           jq -e '.ok == true and .status and .totals and .tracked' monitor-distributions.json >/dev/null
           cat monitor-distributions.json
 
+      - name: Verify monitor wallet API
+        shell: bash
+        run: |
+          set -euo pipefail
+          status=$(curl --silent --show-error --max-time 30 \
+            -o monitor-wallet.json \
+            -w '%{http_code}' \
+            "$MONITOR_URL/api/wallet?address=$TEST_WALLET")
+          echo "Monitor wallet HTTP status: $status"
+          cat monitor-wallet.json
+          test "$status" = '200'
+          jq -e '.ok == true and (.found == true or .found == false)' monitor-wallet.json >/dev/null
+
       - name: Wait for frontend deployment
         shell: bash
         run: |
@@ -68,15 +81,24 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          curl --fail --silent --show-error --max-time 30 \
-            "$APP_URL/api/distributions" -o app-distributions.json
+          status=$(curl --silent --show-error --max-time 30 \
+            -o app-distributions.json \
+            -w '%{http_code}' \
+            "$APP_URL/api/distributions")
+          echo "Frontend distribution proxy HTTP status: $status"
+          cat app-distributions.json
+          test "$status" = '200'
           jq -e '.ok == true and .status and .totals and .tracked' app-distributions.json >/dev/null
 
       - name: Verify frontend wallet lookup proxy
         shell: bash
         run: |
           set -euo pipefail
-          curl --fail --silent --show-error --max-time 30 \
-            "$APP_URL/api/wallet?address=$TEST_WALLET" -o wallet.json
-          jq -e '.ok == true and (.found == true or .found == false)' wallet.json >/dev/null
+          status=$(curl --silent --show-error --max-time 30 \
+            -o wallet.json \
+            -w '%{http_code}' \
+            "$APP_URL/api/wallet?address=$TEST_WALLET")
+          echo "Frontend wallet proxy HTTP status: $status"
           cat wallet.json
+          test "$status" = '200'
+          jq -e '.ok == true and (.found == true or .found == false)' wallet.json >/dev/null
