@@ -18,7 +18,7 @@ jobs:
     env:
       MONITOR_URL: https://ansem-distribution-monitor.ansemverify.workers.dev
       APP_URL: https://ansem-wallet-checker.ansemverify.workers.dev
-      TEST_WALLET: GV6UUmNxz2RpKxmNAPadYKb7uQpszwqQAu3qLJxVdC52
+      TEST_WALLET: GSzKTurJy8rn6s4Z67e5RdG6j4vPPpvcjzBri2ALSXgX
 
     steps:
       - name: Verify monitor health
@@ -34,13 +34,15 @@ jobs:
           set -euo pipefail
           curl --fail --silent --show-error --max-time 30 "$MONITOR_URL/api/distributions" -o monitor-distributions.json
           jq -e '.ok == true and .status and .totals and .tracked' monitor-distributions.json >/dev/null
+          jq '{status, totals, latestDistribution, tracked}' monitor-distributions.json
 
-      - name: Verify monitor wallet API
+      - name: Verify known recipient wallet API
         shell: bash
         run: |
           set -euo pipefail
           curl --fail --silent --show-error --max-time 30 "$MONITOR_URL/api/wallet?address=$TEST_WALLET" -o monitor-wallet.json
-          jq -e '.ok == true and (.found == true or .found == false)' monitor-wallet.json >/dev/null
+          jq -e '.ok == true and .found == true and (.transferCount >= 1) and (.amountReceived != null)' monitor-wallet.json >/dev/null
+          jq '{found, amountReceived, transferCount, tokenMint, sourceWallet, transactionSignature, blockTime}' monitor-wallet.json
 
       - name: Verify frontend application and metadata
         shell: bash
@@ -68,13 +70,13 @@ jobs:
           cat app-distributions.json 2>/dev/null || true
           exit 1
 
-      - name: Wait for frontend wallet proxy
+      - name: Wait for frontend known recipient proxy
         shell: bash
         run: |
           set -euo pipefail
           for attempt in $(seq 1 30); do
             status=$(curl --silent --show-error --max-time 30 -o wallet.json -w '%{http_code}' "$APP_URL/api/wallet?address=$TEST_WALLET" || true)
-            if [ "$status" = '200' ] && jq -e '.ok == true and (.found == true or .found == false)' wallet.json >/dev/null 2>&1; then
+            if [ "$status" = '200' ] && jq -e '.ok == true and .found == true and (.transferCount >= 1) and (.amountReceived != null)' wallet.json >/dev/null 2>&1; then
               exit 0
             fi
             echo "Frontend wallet proxy is not ready: HTTP $status, attempt $attempt/30"
