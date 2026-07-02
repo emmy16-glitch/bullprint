@@ -1,0 +1,94 @@
+name: Frontend proxy diagnostic
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  diagnose:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Probe frontend API routes
+        id: probe
+        shell: bash
+        run: |
+          set -euo pipefail
+          app='https://ansem-wallet-checker.emmanuelokunlola16.workers.dev'
+          wallet='GV6UUmNxz2RpKxmNAPadYKb7uQpszwqQAu3qLJxVdC52'
+
+          distribution_status=$(curl --silent --show-error --max-time 30 \
+            -o distribution.json -w '%{http_code}' \
+            "$app/api/distributions")
+          wallet_status=$(curl --silent --show-error --max-time 30 \
+            -o wallet.json -w '%{http_code}' \
+            "$app/api/wallet?address=$wallet")
+
+          echo "distribution_status=$distribution_status" >> "$GITHUB_OUTPUT"
+          echo "wallet_status=$wallet_status" >> "$GITHUB_OUTPUT"
+
+          {
+            echo 'distribution_body<<EOF'
+            head -c 2000 distribution.json
+            echo
+            echo EOF
+            echo 'wallet_body<<EOF'
+            head -c 2000 wallet.json
+            echo
+            echo EOF
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Publish diagnostic result
+        uses: actions/github-script@v7
+        env:
+          DISTRIBUTION_STATUS: ${{ steps.probe.outputs.distribution_status }}
+          WALLET_STATUS: ${{ steps.probe.outputs.wallet_status }}
+          DISTRIBUTION_BODY: ${{ steps.probe.outputs.distribution_body }}
+          WALLET_BODY: ${{ steps.probe.outputs.wallet_body }}
+        with:
+          script: |
+            const title = 'Frontend proxy diagnostic'
+            const body = [
+              '## Frontend proxy diagnostic',
+              '',
+              `- Distribution route status: **${process.env.DISTRIBUTION_STATUS}**`,
+              `- Wallet route status: **${process.env.WALLET_STATUS}**`,
+              '',
+              '### Distribution response',
+              '```text',
+              process.env.DISTRIBUTION_BODY || '(empty)',
+              '```',
+              '',
+              '### Wallet response',
+              '```text',
+              process.env.WALLET_BODY || '(empty)',
+              '```',
+            ].join('\n')
+
+            const { data: issues } = await github.rest.issues.listForRepo({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              state: 'open',
+              per_page: 100,
+            })
+            const existing = issues.find((issue) => issue.title === title)
+            if (existing) {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: existing.number,
+                body,
+              })
+            } else {
+              await github.rest.issues.create({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                title,
+                body,
+              })
+            }
