@@ -3,6 +3,8 @@ const DISTRIBUTION_WALLET = 'GV6UUmNxz2RpKxmNAPadYKb7uQpszwqQAu3qLJxVdC52';
 const RECENT_LIMIT = 20;
 const BACKFILL_LIMIT = 10;
 const BATCH_GAP_SECONDS = 15 * 60;
+const QUERY_PAGE_SIZE = 500;
+const BASE58_ADDRESS = /^[1-9A-HJ-NP-Za-km-z]{32,44}$/;
 
 const JSON_HEADERS = {
   'Content-Type': 'application/json; charset=UTF-8',
@@ -75,6 +77,20 @@ async function setState(env, key, value) {
 
 async function deleteState(env, key) {
   await env.DB.prepare('DELETE FROM monitor_state WHERE key = ?').bind(key).run();
+}
+
+async function ensureStatsRow(env) {
+  await env.DB.prepare(`
+    INSERT INTO distribution_stats (
+      id,
+      total_raw,
+      decimals,
+      transfer_count,
+      recipient_count,
+      last_detected_at
+    ) VALUES (1, '0', 0, 0, 0, NULL)
+    ON CONFLICT(id) DO NOTHING
+  `).run();
 }
 
 function accountKey(value) {
@@ -154,6 +170,8 @@ function extractTransfers(transaction, signature) {
 async function storeTransfers(env, transfers) {
   if (!transfers.length) return 0;
 
+  await ensureStatsRow(env);
+
   let addedRaw = 0n;
   let decimals = 0;
   let inserted = 0;
@@ -214,14 +232,20 @@ async function storeTransfers(env, transfers) {
   const totalRaw = BigInt(current?.total_raw || '0') + addedRaw;
 
   await env.DB.prepare(`
-    UPDATE distribution_stats
-    SET
-      total_raw = ?,
-      decimals = ?,
-      transfer_count = ?,
-      recipient_count = ?,
-      last_detected_at = ?
-    WHERE id = 1
+    INSERT INTO distribution_stats (
+      id,
+      total_raw,
+      decimals,
+      transfer_count,
+      recipient_count,
+      last_detected_at
+    ) VALUES (1, ?, ?, ?, ?, ?)
+    ON CONFLICT(id) DO UPDATE SET
+      total_raw = excluded.total_raw,
+      decimals = excluded.decimals,
+      transfer_count = excluded.transfer_count,
+      recipient_count = excluded.recipient_count,
+      last_detected_at = excluded.last_detected_at
   `)
     .bind(
       totalRaw.toString(),
@@ -257,12 +281,8 @@ async function processSignatures(env, signatures) {
   let inserted = 0;
 
   for (const signatureInfo of [...signatures].reverse()) {
-    try {
-      inserted += await processSignature(env, signatureInfo);
-      await sleep(80);
-    } catch (error) {
-      console.error('Transaction processing failed', signatureInfo.signature, error);
-    }
+    inserted += await processSignature(env, signatureInfo);
+    await sleep(80);
   }
 
   return inserted;
@@ -356,6 +376,8 @@ async function scanBackfill(env) {
 
 async function runMonitor(env) {
   const startedAt = Date.now();
+  await ensureStatsRow(env);
+
   const recent = await scanRecent(env);
   const backfill = await scanBackfill(env);
 
@@ -382,41 +404,68 @@ function formatRaw(rawValue, decimals) {
   return fraction ? `${whole}.${fraction}` : whole;
 }
 
+async function loadLatestDistribution(env) {
+  let offset = 0;
+  let previousTime = null;
+  let latestTime = null;
+  let latestRaw = 0n;
+  let decimals = 0;
+  let transferCount = 0;
+  const recipients = new Set();
+  const recentTransfers = [];
+  let complete = false;
+
+  while (!complete) {
+    const pageResult = await env.DB.prepare(`
+      SELECT signature, recipient, amount_raw, decimals, block_time, slot
+      FROM transfers
+      ORDER BY block_time DESC, detected_at DESC, id DESC
+      LIMIT ? OFFSET ?
+    `)
+      .bind(QUERY_PAGE_SIZE, offset)
+      .all();
+
+    const rows = pageResult.results || [];
+    if (!rows.length) break;
+
+    for (const transfer of rows) {
+      if (recentTransfers.length < 25) recentTransfers.push(transfer);
+
+      if (previousTime !== null && previousTime - transfer.block_time > BATCH_GAP_SECONDS) {
+        complete = true;
+        break;
+      }
+
+      latestTime ??= transfer.block_time;
+      previousTime = transfer.block_time;
+      latestRaw += BigInt(transfer.amount_raw);
+      decimals = Number(transfer.decimals || decimals);
+      transferCount += 1;
+      recipients.add(transfer.recipient);
+    }
+
+    if (complete || rows.length < QUERY_PAGE_SIZE) break;
+    offset += rows.length;
+  }
+
+  return {
+    latestTime,
+    latestRaw,
+    decimals,
+    transferCount,
+    recipientCount: recipients.size,
+    recentTransfers,
+  };
+}
+
 async function getPublicData(env) {
+  await ensureStatsRow(env);
+
   const stats = await env.DB.prepare(
     'SELECT * FROM distribution_stats WHERE id = 1',
   ).first();
-
-  const recentResult = await env.DB.prepare(`
-    SELECT signature, recipient, amount_raw, decimals, block_time, slot
-    FROM transfers
-    ORDER BY block_time DESC, detected_at DESC
-    LIMIT 500
-  `).all();
-
-  const recent = recentResult.results || [];
-  const latestBatch = [];
-  let previousTime = null;
-
-  for (const transfer of recent) {
-    if (previousTime !== null && previousTime - transfer.block_time > BATCH_GAP_SECONDS) {
-      break;
-    }
-
-    latestBatch.push(transfer);
-    previousTime = transfer.block_time;
-  }
-
-  let latestRaw = 0n;
-  const latestRecipients = new Set();
-
-  for (const transfer of latestBatch) {
-    latestRaw += BigInt(transfer.amount_raw);
-    latestRecipients.add(transfer.recipient);
-  }
-
-  const latestTime = latestBatch[0]?.block_time || null;
-  const decimals = Number(stats?.decimals || latestBatch[0]?.decimals || 0);
+  const latest = await loadLatestDistribution(env);
+  const decimals = Number(stats?.decimals || latest.decimals || 0);
   const lastRunAt = Number(await getState(env, 'last_run_at')) || null;
   const monitoring = Boolean(
     lastRunAt && Math.floor(Date.now() / 1000) - lastRunAt <= 5 * 60,
@@ -436,20 +485,20 @@ async function getPublicData(env) {
       uniqueRecipients: Number(stats?.recipient_count || 0),
       lastDetectedAt: stats?.last_detected_at || null,
     },
-    latestDistribution: latestBatch.length
+    latestDistribution: latest.transferCount
       ? {
-          amountRaw: latestRaw.toString(),
-          amount: formatRaw(latestRaw.toString(), decimals),
-          recipientCount: latestRecipients.size,
-          transferCount: latestBatch.length,
-          lastDetectedAt: latestTime,
+          amountRaw: latest.latestRaw.toString(),
+          amount: formatRaw(latest.latestRaw.toString(), decimals),
+          recipientCount: latest.recipientCount,
+          transferCount: latest.transferCount,
+          lastDetectedAt: latest.latestTime,
           status:
-            Math.floor(Date.now() / 1000) - latestTime <= BATCH_GAP_SECONDS
+            Math.floor(Date.now() / 1000) - latest.latestTime <= BATCH_GAP_SECONDS
               ? 'in_progress'
               : 'completed',
         }
       : null,
-    recentTransfers: recent.slice(0, 25).map((transfer) => ({
+    recentTransfers: latest.recentTransfers.map((transfer) => ({
       signature: transfer.signature,
       recipient: transfer.recipient,
       amountRaw: transfer.amount_raw,
@@ -467,6 +516,72 @@ async function getPublicData(env) {
   };
 }
 
+async function getWalletLookup(env, address) {
+  if (!BASE58_ADDRESS.test(address || '')) {
+    return json({ ok: false, error: 'A valid public Solana wallet address is required.' }, 400);
+  }
+
+  let offset = 0;
+  let totalRaw = 0n;
+  let transferCount = 0;
+  let latestTransfer = null;
+  let decimals = 0;
+
+  while (true) {
+    const pageResult = await env.DB.prepare(`
+      SELECT signature, amount_raw, decimals, block_time, slot
+      FROM transfers
+      WHERE recipient = ?
+      ORDER BY block_time DESC, detected_at DESC, id DESC
+      LIMIT ? OFFSET ?
+    `)
+      .bind(address, QUERY_PAGE_SIZE, offset)
+      .all();
+
+    const rows = pageResult.results || [];
+    if (!rows.length) break;
+
+    latestTransfer ??= rows[0];
+
+    for (const transfer of rows) {
+      totalRaw += BigInt(transfer.amount_raw);
+      decimals = Number(transfer.decimals || decimals);
+      transferCount += 1;
+    }
+
+    if (rows.length < QUERY_PAGE_SIZE) break;
+    offset += rows.length;
+  }
+
+  if (!latestTransfer) {
+    const backfillComplete = (await getState(env, 'backfill_complete')) === '1';
+    return json({
+      ok: true,
+      found: false,
+      indexing: !backfillComplete,
+      reason: backfillComplete
+        ? 'No matching $ANSEM distribution was found in the completed indexed history.'
+        : 'Historical indexing is still in progress.',
+    });
+  }
+
+  return json({
+    ok: true,
+    found: true,
+    recipient: address,
+    amountReceived: formatRaw(totalRaw.toString(), decimals),
+    rawAmountReceived: totalRaw.toString(),
+    decimals,
+    tokenMint: TRACKED_MINT,
+    sourceWallet: DISTRIBUTION_WALLET,
+    transactionSignature: latestTransfer.signature,
+    blockTime: latestTransfer.block_time,
+    slot: latestTransfer.slot,
+    transferCount,
+    explorerUrl: `https://explorer.solana.com/tx/${latestTransfer.signature}`,
+  });
+}
+
 export default {
   async fetch(request, env) {
     if (request.method === 'OPTIONS') {
@@ -477,6 +592,7 @@ export default {
 
     try {
       if (url.pathname === '/' || url.pathname === '/health') {
+        await ensureStatsRow(env);
         const rpcHealth = await rpc(env, 'getHealth');
         const stats = await env.DB.prepare(
           'SELECT * FROM distribution_stats WHERE id = 1',
@@ -492,6 +608,10 @@ export default {
 
       if (url.pathname === '/api/distributions') {
         return json({ ok: true, ...(await getPublicData(env)) });
+      }
+
+      if (url.pathname === '/api/wallet') {
+        return getWalletLookup(env, url.searchParams.get('address') || '');
       }
 
       return json({ ok: false, error: 'Not found' }, 404);
