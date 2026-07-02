@@ -1,4 +1,4 @@
-import entry from './entry.js';
+import entry from './base-entry.js';
 import { reconcileDistributionStats } from './reconcile.js';
 
 const JSON_HEADERS = {
