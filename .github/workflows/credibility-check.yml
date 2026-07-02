@@ -1,0 +1,49 @@
+name: Credibility checks
+
+on:
+  pull_request:
+    paths:
+      - 'index.html'
+      - 'src/**'
+      - 'worker/**'
+      - 'cloudflare-monitor/**'
+      - 'wrangler.jsonc'
+
+permissions:
+  contents: read
+
+jobs:
+  trust-surface:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Reject prototype wording in crawlable UI
+        shell: bash
+        run: |
+          set -euo pipefail
+          if grep -RniE 'demonstration data|receipt prototype' index.html src; then
+            echo 'Prototype or demonstration wording remains in crawlable UI.'
+            exit 1
+          fi
+
+      - name: Verify required trust links and metadata
+        shell: bash
+        run: |
+          set -euo pipefail
+          grep -q 'name="description"' index.html
+          grep -q 'property="og:title"' index.html
+          grep -q 'name="twitter:card"' index.html
+          grep -q 'solscan.io/token' src/components/TrackedMint.jsx
+          grep -q 'solscan.io/tx' src/components/LiveDistributionMonitor.jsx
+          grep -q 'solscan.io/account' src/components/WalletResult.jsx
+
+      - name: Verify API protection configuration
+        shell: bash
+        run: |
+          set -euo pipefail
+          grep -q 'PUBLIC_API_RATE_LIMITER' cloudflare-monitor/wrangler.jsonc
+          grep -q 'RPC_RATE_LIMITER' cloudflare-monitor/wrangler.jsonc
+          grep -q 'Cache-Control' worker/index.js
