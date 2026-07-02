@@ -15,8 +15,8 @@ jobs:
     timeout-minutes: 15
 
     env:
-      MONITOR_URL: https://ansem-distribution-monitor.emmanuelokunlola16.workers.dev
-      APP_URL: https://ansem-wallet-checker.emmanuelokunlola16.workers.dev
+      MONITOR_URL: https://ansem-distribution-monitor.ansemverify.workers.dev
+      APP_URL: https://ansem-wallet-checker.ansemverify.workers.dev
       TEST_WALLET: GV6UUmNxz2RpKxmNAPadYKb7uQpszwqQAu3qLJxVdC52
 
     steps:

@@ -88,7 +88,7 @@ jobs:
             ! grep -qiE 'demonstration data|clearly labelled|receipt prototype' "$body"
           }
 
-          bare_url='https://ansem-wallet-checker.emmanuelokunlola16.workers.dev/'
+          bare_url='https://ansem-wallet-checker.ansemverify.workers.dev/'
           busted_url="${bare_url}?metadata-check=${GITHUB_SHA}"
 
           for attempt in $(seq 1 20); do
