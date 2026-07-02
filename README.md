@@ -49,7 +49,7 @@ The frontend Worker configuration is stored in `wrangler.jsonc`. Requests under 
 cd cloudflare-monitor
 npm install
 npx wrangler d1 migrations apply ansem-distribution-db --remote
-npm run deploy
+npx wrangler deploy
 ```
 
 The monitor requires:
