@@ -8,7 +8,14 @@ export default {
 
   scheduled(controller, env, context) {
     const result = entry.scheduled(controller, env, context);
-    context.waitUntil(reconcileDistributionStats(env));
+
+    context.waitUntil(
+      (async () => {
+        await scheduler.wait(30_000);
+        await reconcileDistributionStats(env);
+      })(),
+    );
+
     return result;
   },
 };
