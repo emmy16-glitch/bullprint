@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - main
+  pull_request:
   workflow_dispatch:
 
 permissions:
@@ -41,12 +42,16 @@ jobs:
           curl --fail --silent --show-error --max-time 30 "$MONITOR_URL/api/wallet?address=$TEST_WALLET" -o monitor-wallet.json
           jq -e '.ok == true and (.found == true or .found == false)' monitor-wallet.json >/dev/null
 
-      - name: Verify frontend application
+      - name: Verify frontend application and metadata
         shell: bash
         run: |
           set -euo pipefail
-          curl --fail --silent --show-error --max-time 30 "$APP_URL/" -o app.html
+          curl --fail --silent --show-error --location --max-time 30 "$APP_URL/" -o app.html
           grep -q '<div id="root"' app.html
+          grep -q '<title>$ANSEM Wallet Checker — Verify Solana Distributions</title>' app.html
+          grep -q 'Check whether a Solana wallet received a real $ANSEM distribution' app.html
+          grep -q 'https://ansem-wallet-checker.ansemverify.workers.dev/' app.html
+          ! grep -qiE 'demonstration data|clearly labelled|receipt prototype' app.html
 
       - name: Wait for frontend distribution proxy
         shell: bash
