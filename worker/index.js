@@ -1,4 +1,4 @@
-const MONITOR_ORIGIN = 'https://ansem-distribution-monitor.emmanuelokunlola16.workers.dev'
+const MONITOR_ORIGIN = 'https://ansem-distribution-monitor.ansemverify.workers.dev'
 const DISTRIBUTION_CACHE_SECONDS = 15
 const PAGE_TITLE = '$ANSEM Wallet Checker — Verify Solana Distributions'
 const PAGE_DESCRIPTION =
@@ -188,11 +188,11 @@ export default {
       const assetResponse = await env.ASSETS.fetch(request)
       return rewriteDocumentMetadata(assetResponse)
     } catch (error) {
-      console.error('BullPrint API proxy failed', error)
+      console.error('$ANSEM Wallet Checker API proxy failed', error)
       return json(
         {
           ok: false,
-          error: 'The BullPrint data service is temporarily unavailable.',
+          error: 'The $ANSEM Wallet Checker data service is temporarily unavailable.',
         },
         502,
       )
