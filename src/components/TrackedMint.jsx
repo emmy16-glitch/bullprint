@@ -43,5 +43,3 @@ export default function TrackedMint() {
     </aside>
   )
 }
-
-export { MINT }
