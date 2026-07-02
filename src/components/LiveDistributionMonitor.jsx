@@ -130,10 +130,6 @@ export default function LiveDistributionMonitor() {
     }
   }, [endpoint])
 
-  useEffect(() => {
-    setPage(1)
-  }, [query])
-
   const refreshNow = async () => {
     setRefreshing(true)
     const controller = new AbortController()
@@ -191,6 +187,11 @@ export default function LiveDistributionMonitor() {
     (activePage - 1) * PAGE_SIZE,
     activePage * PAGE_SIZE,
   )
+
+  function updateQuery(value) {
+    setQuery(value)
+    setPage(1)
+  }
 
   return (
     <section className="monitor" id="live-distributions" aria-labelledby="monitor-title">
@@ -300,7 +301,7 @@ export default function LiveDistributionMonitor() {
                 id="transfer-search"
                 type="search"
                 value={query}
-                onChange={(event) => setQuery(event.target.value)}
+                onChange={(event) => updateQuery(event.target.value)}
                 placeholder="Recipient or transaction signature"
                 autoComplete="off"
               />
