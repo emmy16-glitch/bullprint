@@ -63,23 +63,44 @@ jobs:
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           command: deploy
 
-      - name: Verify live metadata
+      - name: Verify exact production homepage metadata
         shell: bash
         run: |
           set -euo pipefail
-          url='https://ansem-wallet-checker.emmanuelokunlola16.workers.dev/?metadata-check='
-          url+="${GITHUB_SHA}"
+
+          verify_url() {
+            local url="$1"
+            local body="$2"
+            local headers="$3"
+
+            curl --fail --silent --show-error --location --max-time 30 \
+              -H 'Cache-Control: no-cache, no-store, max-age=0' \
+              -H 'Pragma: no-cache' \
+              -D "$headers" \
+              "$url" -o "$body"
+
+            echo "Checked: $url"
+            grep -iE '^(HTTP/|cache-control:|cf-cache-status:|cf-ray:|x-bullprint-metadata:)' "$headers" || true
+            grep -iE '<title>|name="description"|demonstration data|receipt prototype' "$body" || true
+
+            grep -q '<title>$ANSEM Wallet Checker — Verify Solana Distributions</title>' "$body"
+            grep -q 'Check whether a Solana wallet received a real $ANSEM distribution' "$body"
+            ! grep -qiE 'demonstration data|clearly labelled|receipt prototype' "$body"
+          }
+
+          bare_url='https://ansem-wallet-checker.emmanuelokunlola16.workers.dev/'
+          busted_url="${bare_url}?metadata-check=${GITHUB_SHA}"
+
           for attempt in $(seq 1 20); do
-            curl --fail --silent --show-error --max-time 30 "$url" -o app.html
-            if grep -q '<title>$ANSEM Wallet Checker — Verify Solana Distributions</title>' app.html \
-              && grep -q 'Check whether a Solana wallet received a real $ANSEM distribution' app.html \
-              && ! grep -qiE 'demonstration data|receipt prototype' app.html; then
-              echo 'Live metadata verified.'
+            if verify_url "$bare_url" app-bare.html headers-bare.txt \
+              && verify_url "$busted_url" app-busted.html headers-busted.txt; then
+              echo 'Exact production homepage and cache-busted metadata verified.'
               exit 0
             fi
-            echo "Waiting for live metadata, attempt $attempt/20"
+
+            echo "Waiting for production metadata, attempt $attempt/20"
             sleep 15
           done
-          echo 'Live metadata verification failed.'
-          grep -Ei '<title>|name="description"|demonstration data|receipt prototype' app.html || true
+
+          echo 'Production metadata verification failed.'
           exit 1
