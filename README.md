@@ -6,11 +6,12 @@ The application never connects to a visitor's wallet, requests a signature, or a
 
 ## Architecture
 
-- **React + Vite frontend** — wallet form, verification result, receipt UI, and live distribution dashboard.
-- **Frontend Cloudflare Worker** — serves the SPA and exposes controlled same-origin API routes.
+- **React + Vite frontend** — wallet form, verification result, receipt UI, tracked-mint links, and live distribution dashboard.
+- **Frontend Cloudflare Worker** — serves the SPA, exposes controlled same-origin API routes, and edge-caches distribution summaries briefly.
 - **Distribution monitor Worker** — scans the configured distribution wallet every minute.
 - **Cloudflare D1** — stores deduplicated verified transfers, monitor cursors, and aggregate statistics.
 - **Private Solana RPC binding** — the RPC URL remains in Cloudflare Secrets Store and is never exposed to the browser.
+- **Cloudflare Rate Limiting API** — protects public lookup and restricted RPC routes from excessive use.
 
 ## Public application routes
 
@@ -41,7 +42,7 @@ npm run build
 npm run deploy
 ```
 
-The frontend Worker configuration is stored in `wrangler.jsonc`. Requests under `/api/*` run through Worker code before static assets are served.
+The frontend Worker configuration is stored in `wrangler.jsonc`. Requests under `/api/*` run through Worker code before static assets are served. Distribution summaries are cached at the edge for 15 seconds to reduce repeated D1 reads during traffic bursts.
 
 ## Distribution monitor setup
 
@@ -56,6 +57,7 @@ The monitor requires:
 
 - D1 binding: `DB`
 - Secrets Store binding: `SOLANA_RPC_URL`
+- Rate-limit bindings: `PUBLIC_API_RATE_LIMITER` and `RPC_RATE_LIMITER`
 - Cron trigger: once per minute
 
 See `cloudflare-monitor/README.md` for monitor-specific operations.
@@ -68,6 +70,7 @@ See `cloudflare-monitor/README.md` for monitor-specific operations.
 - A fresh database receives its statistics row automatically.
 - Large distribution batches are paginated instead of being truncated at 500 transfers.
 - A wallet is not reported as definitively absent until historical backfill is complete.
+- User-facing evidence links open independent Solscan records.
 
 ## Tracked Solana configuration
 
@@ -80,4 +83,5 @@ See `cloudflare-monitor/README.md` for monitor-specific operations.
 - Never commit private RPC credentials.
 - Keep the RPC allowlist narrow.
 - Treat all addresses and query parameters as untrusted input.
+- Keep rate-limit namespace IDs unique within the Cloudflare account.
 - The tool provides public-chain evidence and does not imply official project endorsement.
