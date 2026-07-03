@@ -1,0 +1,1 @@
+Verify that receipt sharing attaches only the generated PNG and does not include the website URL.
