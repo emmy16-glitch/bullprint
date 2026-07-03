@@ -1,0 +1,1 @@
+Verify the image-only receipt sharing update.
