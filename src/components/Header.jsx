@@ -24,6 +24,7 @@ function initialTheme() {
 export default function Header() {
   const [open, setOpen] = useState(false)
   const [theme, setTheme] = useState(initialTheme)
+  const [activeHref, setActiveHref] = useState('#top')
 
   useEffect(() => {
     document.documentElement.dataset.theme = theme
@@ -38,17 +39,65 @@ export default function Header() {
     }
   }, [theme])
 
+  useEffect(() => {
+    function updateActiveSection() {
+      const marker = window.scrollY + Math.min(180, window.innerHeight * 0.35)
+      let current = '#top'
+
+      for (const [, href] of nav) {
+        const section = document.querySelector(href)
+        if (section && section.offsetTop <= marker) current = href
+      }
+
+      setActiveHref(current)
+    }
+
+    updateActiveSection()
+    window.addEventListener('scroll', updateActiveSection, { passive: true })
+    window.addEventListener('resize', updateActiveSection)
+    window.addEventListener('hashchange', updateActiveSection)
+
+    return () => {
+      window.removeEventListener('scroll', updateActiveSection)
+      window.removeEventListener('resize', updateActiveSection)
+      window.removeEventListener('hashchange', updateActiveSection)
+    }
+  }, [])
+
   const nextTheme = theme === 'dark' ? 'light' : 'dark'
+
+  function navLink(label, href, closeMenu = false) {
+    const active = activeHref === href
+    return (
+      <a
+        key={label}
+        href={href}
+        className={active ? 'is-active' : undefined}
+        aria-current={active ? 'location' : undefined}
+        onClick={() => {
+          setActiveHref(href)
+          if (closeMenu) setOpen(false)
+        }}
+      >
+        {label}
+      </a>
+    )
+  }
 
   return (
     <header className="site-header">
       <div className="header-inner">
-        <a className="brand" href="#top" aria-label="$ANSEM Wallet Checker home">
+        <a
+          className="brand"
+          href="#top"
+          aria-label="$ANSEM Wallet Checker home"
+          onClick={() => setActiveHref('#top')}
+        >
           <TokenLogo />
           <span><strong>$ANSEM</strong><small>WALLET CHECKER</small></span>
         </a>
         <nav className="desktop-nav" aria-label="Primary navigation">
-          {nav.map(([label, href]) => <a key={label} href={href}>{label}</a>)}
+          {nav.map(([label, href]) => navLink(label, href))}
         </nav>
         <div className="header-actions">
           <button
@@ -60,7 +109,7 @@ export default function Header() {
             title={`Switch to ${nextTheme} mode`}
           >
             <Icon name={theme === 'dark' ? 'sun' : 'moon'} />
-            <span>{theme === 'dark' ? 'Light' : 'Dark'}</span>
+            <span>Use {nextTheme}</span>
           </button>
           <a className="primary-btn header-check" href="#checker">Check Wallet</a>
           <button
@@ -69,16 +118,15 @@ export default function Header() {
             onClick={() => setOpen(!open)}
             aria-expanded={open}
             aria-controls="mobile-menu"
+            aria-label={`${open ? 'Close' : 'Open'} navigation menu`}
           >
-            Menu
+            {open ? 'Close' : 'Menu'}
           </button>
         </div>
       </div>
       {open ? (
         <nav id="mobile-menu" className="mobile-nav" aria-label="Mobile navigation">
-          {nav.map(([label, href]) => (
-            <a onClick={() => setOpen(false)} key={label} href={href}>{label}</a>
-          ))}
+          {nav.map(([label, href]) => navLink(label, href, true))}
           <a className="primary-btn" href="#checker" onClick={() => setOpen(false)}>Check Wallet</a>
         </nav>
       ) : null}
