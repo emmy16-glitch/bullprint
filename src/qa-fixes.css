@@ -1,0 +1,230 @@
+#checker,
+#live-distributions,
+#about,
+#safety,
+#faq {
+  scroll-margin-top: 112px;
+}
+
+.desktop-nav a,
+.mobile-nav a {
+  position: relative;
+}
+
+.desktop-nav a.is-active,
+.mobile-nav a.is-active {
+  color: var(--blue);
+  font-weight: 800;
+}
+
+.desktop-nav a.is-active::after {
+  position: absolute;
+  right: 0;
+  bottom: -10px;
+  left: 0;
+  height: 2px;
+  border-radius: 999px;
+  background: currentColor;
+  content: '';
+}
+
+.wallet-input input {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+}
+
+.wallet-input-details {
+  display: grid;
+  gap: 6px;
+  margin-top: 10px;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--page);
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.wallet-input-details.is-valid {
+  border-color: rgba(22, 163, 106, .35);
+  background: rgba(22, 163, 106, .06);
+  color: var(--green);
+}
+
+.wallet-address-preview {
+  display: block;
+  width: 100%;
+  color: var(--text);
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+.wallet-format-hint,
+.paste-status {
+  margin: 8px 0 0;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.paste-status {
+  min-height: 18px;
+  color: #B45309;
+}
+
+.monitor-status-note {
+  margin: 12px 0 0;
+  padding: 10px 12px;
+  border: 1px solid #FDE68A;
+  border-radius: 8px;
+  background: #FFFAEB;
+  color: #7A5D16;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.recipient-cell {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  flex-wrap: wrap;
+}
+
+.recipient-cell .recipient-link {
+  min-width: 0;
+}
+
+.copy-recipient-btn {
+  min-height: 32px;
+  padding: 0 9px;
+  border: 1px solid var(--border) !important;
+  border-radius: 6px;
+  background: var(--surface) !important;
+  color: var(--text) !important;
+  font-size: 12px;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.copy-recipient-btn:hover {
+  border-color: var(--blue) !important;
+  color: var(--blue) !important;
+}
+
+.faq-intro {
+  margin-bottom: 20px;
+}
+
+.faq-list {
+  display: grid;
+  gap: 10px;
+}
+
+.faq-list details {
+  border: 1px solid var(--border);
+  border-radius: 9px;
+  background: var(--surface);
+}
+
+.faq-list summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  min-height: 52px;
+  padding: 12px 14px;
+  color: var(--text);
+  font-weight: 800;
+  cursor: pointer;
+  list-style: none;
+}
+
+.faq-list summary::-webkit-details-marker {
+  display: none;
+}
+
+.faq-list summary b {
+  color: var(--blue);
+  font-size: 20px;
+  line-height: 1;
+  transition: transform .18s ease;
+}
+
+.faq-list details[open] summary b {
+  transform: rotate(45deg);
+}
+
+.faq-list details p {
+  max-width: none;
+  margin: 0;
+  padding: 0 14px 14px;
+}
+
+:root[data-theme='dark'] .wallet-input-details,
+:root[data-theme='dark'] .faq-list details,
+:root[data-theme='dark'] .copy-recipient-btn {
+  border-color: var(--border) !important;
+  background: #0A1522 !important;
+  color: var(--text) !important;
+}
+
+:root[data-theme='dark'] .wallet-input-details.is-valid {
+  border-color: #236A4B !important;
+  background: #0E2B20 !important;
+  color: #A7F3D0 !important;
+}
+
+:root[data-theme='dark'] .monitor-status-note {
+  border-color: #6F5614;
+  background: #2A210C;
+  color: #FDE68A;
+}
+
+:root[data-theme='dark'] .paste-status {
+  color: #FDE68A;
+}
+
+@media (max-width: 768px) {
+  #checker,
+  #live-distributions,
+  #about,
+  #safety,
+  #faq {
+    scroll-margin-top: 88px;
+  }
+
+  .desktop-nav a.is-active::after {
+    display: none;
+  }
+
+  .mobile-nav a.is-active {
+    padding-left: 10px;
+    border-left: 3px solid var(--blue);
+  }
+
+  .recipient-cell {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .copy-recipient-btn {
+    width: auto;
+  }
+}
+
+@media (max-width: 390px) {
+  .wallet-input-details {
+    padding: 9px 10px;
+  }
+
+  .faq-list summary {
+    align-items: flex-start;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .faq-list summary b {
+    transition: none;
+  }
+}
