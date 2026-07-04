@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { writeClipboard } from '../utils/clipboard'
 import './LiveDistributionMonitor.css'
 
 const DEFAULT_ENDPOINT = '/api/distributions'
@@ -73,6 +74,7 @@ async function requestMonitorData(endpoint, signal) {
 export default function LiveDistributionMonitor() {
   const endpoint = import.meta.env.VITE_DISTRIBUTION_MONITOR_URL || DEFAULT_ENDPOINT
   const hasDataRef = useRef(false)
+  const copyTimeoutRef = useRef(null)
   const [data, setData] = useState(null)
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
@@ -81,6 +83,7 @@ export default function LiveDistributionMonitor() {
   const [updatedAt, setUpdatedAt] = useState(null)
   const [query, setQuery] = useState('')
   const [page, setPage] = useState(1)
+  const [copyState, setCopyState] = useState({ address: '', status: '' })
 
   useEffect(() => {
     let active = true
@@ -130,6 +133,8 @@ export default function LiveDistributionMonitor() {
     }
   }, [endpoint])
 
+  useEffect(() => () => window.clearTimeout(copyTimeoutRef.current), [])
+
   const refreshNow = async () => {
     setRefreshing(true)
     const controller = new AbortController()
@@ -165,6 +170,16 @@ export default function LiveDistributionMonitor() {
     }
   }
 
+  async function copyRecipient(address) {
+    const copied = await writeClipboard(address)
+    window.clearTimeout(copyTimeoutRef.current)
+    setCopyState({ address, status: copied ? 'copied' : 'failed' })
+    copyTimeoutRef.current = window.setTimeout(
+      () => setCopyState({ address: '', status: '' }),
+      1800,
+    )
+  }
+
   const monitoring = Boolean(data?.status?.monitoring)
   const backfillComplete = Boolean(data?.status?.backfillComplete)
   const totals = data?.totals
@@ -193,12 +208,21 @@ export default function LiveDistributionMonitor() {
     setPage(1)
   }
 
+  const resultCountText = query.trim()
+    ? `${filteredTransfers.length} matching transfer${filteredTransfers.length === 1 ? '' : 's'}`
+    : `Showing ${filteredTransfers.length} recent transfer${filteredTransfers.length === 1 ? '' : 's'}`
+
   return (
     <section className="monitor" id="live-distributions" aria-labelledby="monitor-title">
       <div className="monitor-toolbar">
         <div className="section-heading">
           <h2 id="monitor-title">Live Distribution Monitor</h2>
-          <span className={`monitor-status${monitoring ? ' is-live' : ''}`}>
+          <span
+            className={`monitor-status${monitoring ? ' is-live' : ''}`}
+            title={monitoring
+              ? 'Automatic monitoring is active.'
+              : 'Automatic monitoring is delayed. Indexed verified data remains available.'}
+          >
             {monitoring ? 'Monitor active' : 'Monitor delayed'}
           </span>
         </div>
@@ -211,6 +235,13 @@ export default function LiveDistributionMonitor() {
           {refreshing ? 'Refreshing…' : 'Refresh data'}
         </button>
       </div>
+
+      {!monitoring && data ? (
+        <p className="monitor-status-note" role="status">
+          Automatic monitoring is delayed. The completed indexed history remains available;
+          use Refresh data to request the latest summary.
+        </p>
+      ) : null}
 
       {loading && !data ? (
         <div className="monitor-loading" role="status" aria-live="polite">
@@ -305,7 +336,7 @@ export default function LiveDistributionMonitor() {
                 placeholder="Recipient or transaction signature"
                 autoComplete="off"
               />
-              <span>{filteredTransfers.length} result{filteredTransfers.length === 1 ? '' : 's'}</span>
+              <span aria-live="polite">{resultCountText}</span>
             </div>
 
             <div className="evidence-table monitor-table">
@@ -316,29 +347,44 @@ export default function LiveDistributionMonitor() {
                 <span>Evidence</span>
               </div>
 
-              {transfers.length ? transfers.map((transfer) => (
-                <div className="table-row" key={`${transfer.signature}-${transfer.recipient}`}>
-                  <a
-                    className="chain-link recipient-link"
-                    href={`https://solscan.io/account/${transfer.recipient}`}
-                    target="_blank"
-                    rel="noreferrer"
-                    title={transfer.recipient}
-                  >
-                    {shorten(transfer.recipient)}
-                  </a>
-                  <strong>{formatExactAmount(transfer.amount)} $ANSEM</strong>
-                  <span>{formatTime(transfer.blockTime)}</span>
-                  <a
-                    className="chain-link transaction-link"
-                    href={`https://solscan.io/tx/${transfer.signature}`}
-                    target="_blank"
-                    rel="noreferrer"
-                  >
-                    View on Solscan ↗
-                  </a>
-                </div>
-              )) : (
+              {transfers.length ? transfers.map((transfer) => {
+                const copied = copyState.address === transfer.recipient && copyState.status === 'copied'
+                const copyFailed = copyState.address === transfer.recipient && copyState.status === 'failed'
+
+                return (
+                  <div className="table-row" key={`${transfer.signature}-${transfer.recipient}`}>
+                    <div className="recipient-cell">
+                      <a
+                        className="chain-link recipient-link"
+                        href={`https://solscan.io/account/${transfer.recipient}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        title={transfer.recipient}
+                      >
+                        {shorten(transfer.recipient)}
+                      </a>
+                      <button
+                        type="button"
+                        className="copy-recipient-btn"
+                        onClick={() => copyRecipient(transfer.recipient)}
+                        aria-label={`Copy recipient address ${transfer.recipient}`}
+                      >
+                        {copied ? 'Copied' : copyFailed ? 'Copy failed' : 'Copy'}
+                      </button>
+                    </div>
+                    <strong>{formatExactAmount(transfer.amount)} $ANSEM</strong>
+                    <span>{formatTime(transfer.blockTime)}</span>
+                    <a
+                      className="chain-link transaction-link"
+                      href={`https://solscan.io/tx/${transfer.signature}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                    >
+                      View transaction on Solscan ↗
+                    </a>
+                  </div>
+                )
+              }) : (
                 <div className="empty-row">
                   {query
                     ? 'No recent transfers match that recipient or transaction signature.'
